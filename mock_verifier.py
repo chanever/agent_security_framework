@@ -39,6 +39,33 @@ def verify(evidence_package: dict) -> dict:
     trace = evidence_package.get("system_trace", {})
     allowed = evidence_package.get("allowed_scope", {})
     external = evidence_package.get("external_environment", {})
+    interaction_analysis = evidence_package.get("external_interaction_analysis", {})
+    static_analysis = interaction_analysis.get("static_analysis", {})
+    reputation_analysis = interaction_analysis.get("reputation_analysis", {})
+
+    critical_static_findings = []
+    for finding in static_analysis.get("findings", []):
+        if isinstance(finding, dict) and str(finding.get("severity", "")).lower() == "critical":
+            critical_static_findings.append(finding)
+    if critical_static_findings:
+        return _result(
+            "BLOCK",
+            "CRITICAL",
+            0.97,
+            ["critical_static_analysis_finding"],
+            [finding.get("rule", "critical static analysis finding") for finding in critical_static_findings],
+            "Static analysis reported a critical finding.",
+        )
+
+    if reputation_analysis.get("known_malicious") is True:
+        return _result(
+            "BLOCK",
+            "CRITICAL",
+            0.99,
+            ["known_malicious_reputation"],
+            ["Reputation analysis marked the target as known malicious."],
+            "External target is known malicious.",
+        )
 
     if policy.is_destructive_command(command):
         return _result("BLOCK", "CRITICAL", 0.99, ["destructive_behavior"], [f"Forbidden command pattern: {command}"], "Destructive or explicitly forbidden command pattern.")

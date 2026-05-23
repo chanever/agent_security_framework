@@ -9,7 +9,10 @@ from pathlib import Path
 from security_framework import policy
 
 
-README_RE = re.compile(r"[\w./-]*README(?:\.md|\.txt)?", re.IGNORECASE)
+EXTERNAL_CONTENT_RE = re.compile(
+    r"[\w./-]*(?:README(?:\.md|\.txt)?|skill\.md|downloaded\.(?:html|txt)|install\.sh|setup\.py|package\.json|requirements\.txt|pyproject\.toml|external_tool_output\.txt)",
+    re.IGNORECASE,
+)
 
 
 def extract_suspicious_instructions(text: str) -> list[str]:
@@ -33,7 +36,7 @@ def _external_content(command: str, workspace: str) -> dict:
     workspace_path = Path(workspace).resolve()
     excerpts = []
     linked_resources = re.findall(r"https?://[^\s'\"<>]+", command)
-    for match in README_RE.findall(command):
+    for match in EXTERNAL_CONTENT_RE.findall(command):
         candidate = (workspace_path / match).resolve()
         try:
             candidate.relative_to(workspace_path)
@@ -63,12 +66,18 @@ def build_evidence_package(
     classification: dict,
     sandbox_result: dict | None,
     semantic_trace: dict | None,
+    external_interaction_analysis: dict | None = None,
 ) -> dict:
     """Build a single Evidence Package for the verifier."""
     command = action.get("command", "")
     trace = semantic_trace or {"file_access": [], "process_execution": [], "network_activity": [], "lsm_events": []}
     sandbox = sandbox_result or {}
     external_content = _external_content(command, context.get("cwd", ""))
+    external_analysis = external_interaction_analysis or {
+        "targets": [],
+        "static_analysis": {"status": "skipped", "findings": [], "summary": "No analysis was requested."},
+        "reputation_analysis": {"status": "skipped", "signals": [], "summary": "No analysis was requested."},
+    }
     notable_behavior = []
     if trace.get("network_activity"):
         notable_behavior.append("network_activity_observed")
@@ -92,11 +101,12 @@ def build_evidence_package(
             "step_id": context.get("step", 0),
             "action_type": action.get("type"),
             "command_or_target": command,
-            "outside_env": classification.get("outside_env", False),
+            "external_env": classification.get("external_env", classification.get("outside_env", False)),
             "expected_purpose": action.get("reason", ""),
             "why_this_action_is_being_checked": ", ".join(classification.get("reasons", [])),
         },
         "external_environment": external_content,
+        "external_interaction_analysis": external_analysis,
         "shadow_agent_execution": {
             "execution_status": sandbox.get("execution_status", "not_run"),
             "trajectory": [
