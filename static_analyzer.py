@@ -40,6 +40,16 @@ from security_framework.config import SecurityFrameworkConfig
 # Source: https://github.com/DataDog/guarddog/tree/main/guarddog/analyzer/sourcecode
 GUARDDOG_RULES_DIR = Path(__file__).resolve().parent / "external_rules_guarddog"
 
+# Same GuardDog rules with `paths.include` filters stripped so the patterns
+# apply to any file in the workspace (not just `setup.py`/`__init__.py`).
+# This catches agent_mds malicious-repos cases that plant payloads in
+# `scripts/*.py` instead of the install entrypoint.
+GUARDDOG_RULES_UNSCOPED_DIR = Path(__file__).resolve().parent / "external_rules_guarddog_unscoped"
+
+# chanever-authored supply-chain rules — covers gaps GuardDog leaves open
+# (e.g. `.env` reads, `subprocess.run(["python", "-c", ...])`).
+CHANEVER_RULES_DIR = Path(__file__).resolve().parent / "external_rules_chanever"
+
 
 _CODE_BEARING_TARGET_TYPES = {"local_package", "repo", "requirements_file"}
 # Map semgrep's "extra.severity" vocabulary into the uppercase ladder used by
@@ -149,6 +159,12 @@ def _run_semgrep_docker(scan_root: Path, cfg: SecurityFrameworkConfig) -> dict:
     if GUARDDOG_RULES_DIR.is_dir():
         cmd.extend(["-v", f"{GUARDDOG_RULES_DIR}:/guarddog_rules:ro"])
         semgrep_args.extend(["--config", "/guarddog_rules"])
+    if GUARDDOG_RULES_UNSCOPED_DIR.is_dir():
+        cmd.extend(["-v", f"{GUARDDOG_RULES_UNSCOPED_DIR}:/guarddog_unscoped:ro"])
+        semgrep_args.extend(["--config", "/guarddog_unscoped"])
+    if CHANEVER_RULES_DIR.is_dir():
+        cmd.extend(["-v", f"{CHANEVER_RULES_DIR}:/chanever_rules:ro"])
+        semgrep_args.extend(["--config", "/chanever_rules"])
     cmd.extend([cfg.semgrep_image, *semgrep_args, "/src"])
     completed = subprocess.run(
         cmd,

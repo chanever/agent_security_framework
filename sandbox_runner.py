@@ -177,17 +177,28 @@ def _docker_run(args: list[str], *, timeout: int = 30, check: bool = True) -> su
         raise _BpftraceUnavailable(f"{' '.join(args[:3])} timed out after {timeout}s") from exc
 
 
+BARRIER_PATH_IN_CONTAINER = "/var/sandbox/proceed"
+
+
 def _attach_bpftrace_to_container(
     container_id: str,
     run_dir: Path,
     cfg: SecurityFrameworkConfig,
 ) -> tuple[subprocess.Popen, Path]:
-    """Path B attach: pause → inspect pid → render probe → launch bpftrace docker.
+    """Attach bpftrace via the **barrier pattern**.
 
-    Returns ``(bpftrace_proc, events_path)``. The caller MUST unpause the
-    container and reap ``bpftrace_proc`` afterwards.
+    The container's CMD wrapper waits on ``/var/sandbox/proceed`` before
+    executing the real command. So we can:
+    1. ``docker inspect`` to read the container init PID (no pause needed —
+       the init is sleeping in the barrier loop, the real command hasn't
+       started yet).
+    2. Parse ``/proc/<pid>/cgroup`` → cgroup id → render probe.bt.
+    3. Launch bpftrace docker, wait for the "Attaching N probes" marker.
+    4. Caller invokes ``_release_barrier()`` (``docker exec touch …``) so
+       the container's real command runs *with probes already attached* —
+       no race window. Replaces the Path B docker-pause→unpause dance that
+       failed on fast commands (race between ``docker start`` and pause).
     """
-    _docker_run(["docker", "pause", container_id])
     inspect = _docker_run(["docker", "inspect", "-f", "{{.State.Pid}}", container_id])
     try:
         container_pid = int(inspect.stdout.strip())
@@ -258,8 +269,15 @@ def _run_in_sandbox_bpftrace(
     _copy_workspace(workspace, sandbox_workspace)
     _create_dummy_home(sandbox_home)
 
-    shell_command = f"cd /workspace && {command}"
-    wrapped = f"bash -lc {shlex.quote(shell_command)}"
+    # Wrap the user command in a barrier loop so the container's init waits
+    # for the host to attach bpftrace probes *before* exec-ing the real
+    # command. The barrier is released via `docker exec touch …` after the
+    # "Attaching N probes" marker fires.
+    shell_command = (
+        f"mkdir -p $(dirname {BARRIER_PATH_IN_CONTAINER}) && "
+        f"until [ -e {BARRIER_PATH_IN_CONTAINER} ]; do sleep 0.05; done && "
+        f"cd /workspace && {command}"
+    )
     create_args = [
         "docker", "create",
         "--network", cfg.sandbox_network_mode,
@@ -268,7 +286,7 @@ def _run_in_sandbox_bpftrace(
         "-e", "HOME=/home/sandbox",
         "-w", "/workspace",
         cfg.sandbox_docker_image,
-        "bash", "-lc", wrapped,
+        "bash", "-lc", shell_command,
     ]
     create = _docker_run(create_args, timeout=30)
     container_id = create.stdout.strip()
@@ -288,9 +306,20 @@ def _run_in_sandbox_bpftrace(
             bpftrace_proc, events_path = _attach_bpftrace_to_container(container_id, run_path, cfg)
         except _BpftraceUnavailable as exc:
             attach_error = str(exc)
-            _docker_run(["docker", "unpause", container_id], check=False)
+            # Release the barrier so the container's command still runs
+            # (without LSM evidence) instead of hanging in the wait loop.
+            _docker_run(
+                ["docker", "exec", container_id, "touch", BARRIER_PATH_IN_CONTAINER],
+                check=False,
+            )
         else:
-            _docker_run(["docker", "unpause", container_id])
+            # Probes attached — release the barrier so the real command
+            # starts. The container's init was sleeping in the barrier
+            # loop; now it falls through to `cd /workspace && <command>`
+            # with probes already observing.
+            _docker_run(
+                ["docker", "exec", container_id, "touch", BARRIER_PATH_IN_CONTAINER]
+            )
 
         try:
             wait = subprocess.run(

@@ -1,7 +1,9 @@
 """US-002 acceptance — sandbox_runner bpftrace path orchestrates the docker lifecycle.
 
 Verifies that the bpftrace path issues docker subcommands in the order
-``[create, start, pause, inspect, unpause, stop, rm]`` (other subcommands such as
+``[create, start, inspect, exec, stop, rm]`` — barrier pattern, no pause; the
+``exec`` step releases an in-container sentinel after probes attach. Other
+subcommands such as
 ``wait`` and ``logs`` may appear interleaved). Also confirms backward compatibility
 with the strace default and graceful degradation when the bpftrace attach raises.
 """
@@ -18,8 +20,8 @@ from security_framework import sandbox_runner
 from security_framework.config import SecurityFrameworkConfig
 
 
-LIFECYCLE_SUBCOMMANDS = {"create", "start", "pause", "inspect", "unpause", "stop", "rm"}
-EXPECTED_LIFECYCLE = ["create", "start", "pause", "inspect", "unpause", "stop", "rm"]
+LIFECYCLE_SUBCOMMANDS = {"create", "start", "inspect", "exec", "stop", "rm"}
+EXPECTED_LIFECYCLE = ["create", "start", "inspect", "exec", "stop", "rm"]
 
 CONTAINER_ID = "deadbeef" * 8  # 64-char fake docker id
 ATTACHING_MARKER = "Attaching 6 probes...\n"
