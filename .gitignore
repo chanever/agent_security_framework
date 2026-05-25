@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Work / state directories (not committed)
+.omc/
+research/_notes_*.md
+
+# Local artifact outputs
+artifacts/
+/tmp/bench_*/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+bench/smoke_results.json

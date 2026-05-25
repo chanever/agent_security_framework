@@ -6,15 +6,22 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from security_framework import glm_verifier, mock_verifier
 from security_framework.config import SecurityFrameworkConfig
 from security_framework.evidence_builder import build_evidence_package, write_evidence_package
 from security_framework.external_target_extractor import extract_external_targets
-from security_framework.mock_verifier import verify
 from security_framework.reputation_analyzer import analyze_reputation
 from security_framework.sandbox_runner import run_in_sandbox
 from security_framework.static_analyzer import analyze_static
-from security_framework.trace_parser import parse_trace
+from security_framework.trace_parser import parse_trace_auto
 from security_framework.trigger import classify_command
+
+
+def _route_verifier(evidence_package: dict, mode: str) -> dict:
+    """Dispatch verification to the configured backend (``cfg.verifier_mode``)."""
+    if mode == "glm":
+        return glm_verifier.verify(evidence_package)
+    return mock_verifier.verify(evidence_package)
 
 
 class ShadowSandboxSafeguard:
@@ -51,7 +58,7 @@ class ShadowSandboxSafeguard:
             run_dir = self._run_dir(context)
             external_analysis = self._external_interaction_analysis(action, context, classification)
             evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package)
+            verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
             evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
             self._write_json(run_dir / "verifier_result.json", verifier_result)
             if verifier_result.get("decision") == "ALLOW":
@@ -71,7 +78,7 @@ class ShadowSandboxSafeguard:
 
         if not classification.get("needs_shadow_execution"):
             evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package)
+            verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
             evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
             self._write_json(run_dir / "verifier_result.json", verifier_result)
             return self._map_decision(verifier_result, action, evidence_path, run_dir, classification)
@@ -80,9 +87,12 @@ class ShadowSandboxSafeguard:
             return self._block(action, "Shadow sandbox is required but disabled.", classification=classification, context=context)
 
         sandbox_result = run_in_sandbox(command, context.get("cwd", "."), run_dir, self.config)
-        semantic_trace = parse_trace(sandbox_result.get("trace_raw", ""))
+        semantic_trace = parse_trace_auto(
+            sandbox_result.get("trace_raw", ""),
+            trace_method=sandbox_result.get("trace_method", "strace"),
+        )
         evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, sandbox_result, semantic_trace, external_analysis)
-        verifier_result = verify(evidence_package)
+        verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
         evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
         self._write_json(run_dir / "sandbox_result.json", self._redact_docker_command(sandbox_result))
         self._write_json(run_dir / "semantic_trace.json", semantic_trace)

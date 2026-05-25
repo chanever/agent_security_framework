@@ -24,7 +24,12 @@ def extract_suspicious_instructions(text: str) -> list[str]:
     return sorted(set(found))
 
 
-def _safe_excerpt(path: Path, max_chars: int = 2000) -> str:
+def _safe_excerpt(path: Path, max_chars: int = 12000) -> str:
+    """Read up to ``max_chars`` of a file. Raised from 2000 → 12000 (2026-05-25)
+    because the smoke run observed several skill-inject contextual injections
+    placing the malicious phrase past the 2000-char boundary (e.g. release-time
+    instructions in pptx SKILL.md). 12000 covers full SKILL.md / README.md of
+    real fixtures while keeping the evidence package size bounded."""
     try:
         resolved = path.resolve()
         return resolved.read_text(encoding="utf-8", errors="replace")[:max_chars]
@@ -51,7 +56,7 @@ def _external_content(command: str, workspace: str) -> dict:
         "source": ", ".join(linked_resources) if linked_resources else "workspace",
         "trust_level": "unknown" if excerpts or linked_resources else "not_applicable",
         "content_summary": "README or remote content referenced by command." if excerpts or linked_resources else "",
-        "raw_content_excerpt": combined[:2000],
+        "raw_content_excerpt": combined[:12000],
         "extracted_instructions": [],
         "extracted_suspicious_instructions": suspicious,
         "suspicious_code_patterns": suspicious,
@@ -109,6 +114,8 @@ def build_evidence_package(
         "external_interaction_analysis": external_analysis,
         "shadow_agent_execution": {
             "execution_status": sandbox.get("execution_status", "not_run"),
+            "trace_method": sandbox.get("trace_method", "strace"),
+            "trace_method_fallback": sandbox.get("trace_method_fallback"),
             "trajectory": [
                 {
                     "command": command,
@@ -128,6 +135,8 @@ def build_evidence_package(
             "network_activity": trace.get("network_activity", []),
             "package_install_events": ["package_install"] if "package_install" in classification.get("reasons", []) else [],
             "lsm_events": trace.get("lsm_events", []),
+            "formatted_events": trace.get("formatted_events", []),
+            "process_tree": trace.get("process_tree", {}),
         },
         "allowed_scope": {
             "read_allowed": ["/workspace/**"],

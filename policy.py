@@ -59,14 +59,88 @@ REVERSE_SHELL_PATTERNS = [
 NETWORK_TOOL_PATTERN = re.compile(r"\b(curl|wget|nc|ncat|telnet|ssh|scp|rsync)\b")
 
 SUSPICIOUS_INSTRUCTION_PHRASES = [
+    # Original prompt-injection seed (kept; substring match against lower-cased text)
     "ignore previous instructions",
+    "ignore the above",
+    "ignore prior instructions",
+    "ignore all previous",
+    "disregard previous",
+    "forget previous",
+    "you must now",
+    "override system prompt",
+    "ignore system prompt",
+    "reveal system prompt",
+    "jailbreak",
+    "developer mode override",
+    # Credential / secret signatures
     "read ~/.ssh/id_rsa",
     "id_rsa",
-    "upload",
-    "token",
+    "id_ed25519",
+    "ssh private key",
+    "private key",
+    "private.key",
+    ".pem",
+    ".env",
+    "dotenv",
+    "credentials",
+    "aws credentials",
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "api key",
+    "api_key",
+    "apikey",
+    "bearer token",
+    "access token",
+    "auth token",
     "secret",
     "password",
-    "aws credentials",
+    "token",
+    # Exfiltration verbs
+    "upload",
+    "exfiltrate",
+    "exfiltration",
+    "send to",
+    "post to",
+    "data to a remote",
+    # Supply-chain / install-hook signatures
+    "cmdclass",
+    "install_requires",  # benign alone but raises attention when combined with other markers
+    "subprocess.popen",
+    "os.system",
+    "eval(",
+    "exec(",
+    "base64.b64decode",
+    "pickle.loads",
+    # Network / shell payload signatures (narrow — these patterns are
+    # rare in benign documentation)
+    "curl | bash",
+    "curl|bash",
+    "wget | sh",
+    "wget|sh",
+    "nc -e",
+    "ncat -e",
+    "bash -i",
+    "reverse shell",
+    "shell.execute",
+    "| bash",
+    "| sh",
+    # Destructive directives (narrow — bare "rm -rf" appears in legitimate
+    # cleanup docs; require dangerous targets)
+    "rm -rf /",
+    "rm -rf ~",
+    "rm -rf $",
+    "delete the original",
+    "wipe the",
+    "destroy the",
+    # Obfuscation hints
+    "base64",
+    "rot13",
+    "obfuscat",
+    # Skill-injection contextual cues (from skill-inject fixture corpus)
+    "password-protected archive",
+    "password-protected zip",
+    "manually create a password",
+    "delete the original file",
 ]
 
 
