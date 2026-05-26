@@ -1,4 +1,4 @@
-"""Rule-based verifier used until the GLM verifier is connected."""
+"""Rule-based verifier used for local tests and mock verifier mode."""
 
 from __future__ import annotations
 
