@@ -6,7 +6,7 @@ import re
 import shlex
 from pathlib import PurePosixPath
 
-from security_framework.external_target_extractor import extract_external_targets
+from security_framework.classification.external_target_extractor import extract_external_targets
 
 
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+")

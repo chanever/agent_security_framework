@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import re
 
-from security_framework import policy
+from security_framework.evidence import policy
 
 
 PATH_ARG_RE = re.compile(r'"([^"]+)"')
