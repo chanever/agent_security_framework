@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from security_framework.evidence_builder import build_evidence_package
+from security_framework.evidence.evidence_builder import build_evidence_package
 
 
 def _semantic_trace_with_lsm() -> dict:

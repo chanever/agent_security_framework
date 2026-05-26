@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 
 from security_framework import event_logger
-from security_framework.evidence_builder import build_evidence_package
-from security_framework.trace_parser import parse_bpftrace_trace
+from security_framework.evidence.evidence_builder import build_evidence_package
+from security_framework.sandbox.trace_parser import parse_bpftrace_trace
 
 
 def test_format_file_event_includes_pid_comm_path():

@@ -115,7 +115,7 @@ def build_evidence_for_case(case: InjecAgentCase) -> dict:
     lives in the tool response, which we plant directly into
     ``external_environment.raw_content_excerpt``.
     """
-    from security_framework.evidence_builder import extract_suspicious_instructions
+    from security_framework.evidence.evidence_builder import extract_suspicious_instructions
 
     user_task, context, action, classification = case.as_chanever_inputs()
     raw_excerpt = case.tool_response[:12000]

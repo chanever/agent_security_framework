@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from security_framework.external_target_extractor import extract_external_targets
+from security_framework.classification.external_target_extractor import extract_external_targets
 
 
 def _action(cmd: str) -> dict:

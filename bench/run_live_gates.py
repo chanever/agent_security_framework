@@ -23,9 +23,9 @@ REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 
 from security_framework.config import SecurityFrameworkConfig
-from security_framework.sandbox_runner import run_in_sandbox
-from security_framework.static_analyzer import analyze_static
-from security_framework.trace_parser import parse_trace_auto
+from security_framework.sandbox.sandbox_runner import run_in_sandbox
+from security_framework.analysis.static_analyzer import analyze_static
+from security_framework.sandbox.trace_parser import parse_trace_auto
 
 BENCH = Path("/home/user/agent-mds/eval/benchmarks")
 

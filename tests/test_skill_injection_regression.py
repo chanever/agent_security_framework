@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from security_framework.evidence_builder import (
+from security_framework.evidence.evidence_builder import (
     _safe_excerpt,
     extract_suspicious_instructions,
 )

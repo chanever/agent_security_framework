@@ -38,14 +38,14 @@ REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 
 from security_framework.config import SecurityFrameworkConfig  # noqa: E402
-from security_framework.evidence_builder import build_evidence_package  # noqa: E402
-from security_framework.external_target_extractor import extract_external_targets  # noqa: E402
+from security_framework.evidence.evidence_builder import build_evidence_package  # noqa: E402
+from security_framework.classification.external_target_extractor import extract_external_targets  # noqa: E402
 from security_framework.glm_verifier import verify as glm_verify  # noqa: E402
-from security_framework.reputation_analyzer import analyze_reputation  # noqa: E402
-from security_framework.sandbox_runner import run_in_sandbox  # noqa: E402
-from security_framework.static_analyzer import analyze_static  # noqa: E402
-from security_framework.trace_parser import parse_trace_auto  # noqa: E402
-from security_framework.trigger import classify_command  # noqa: E402
+from security_framework.analysis.reputation_analyzer import analyze_reputation  # noqa: E402
+from security_framework.sandbox.sandbox_runner import run_in_sandbox  # noqa: E402
+from security_framework.analysis.static_analyzer import analyze_static  # noqa: E402
+from security_framework.sandbox.trace_parser import parse_trace_auto  # noqa: E402
+from security_framework.classification.trigger import classify_command  # noqa: E402
 
 from bench.action_templates import load_cases  # noqa: E402
 

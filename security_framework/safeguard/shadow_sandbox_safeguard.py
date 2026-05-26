@@ -6,22 +6,26 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from security_framework import glm_verifier, mock_verifier
+from security_framework import glm_verifier
 from security_framework.config import SecurityFrameworkConfig
-from security_framework.evidence_builder import build_evidence_package, write_evidence_package
-from security_framework.external_target_extractor import extract_external_targets
-from security_framework.reputation_analyzer import analyze_reputation
-from security_framework.sandbox_runner import run_in_sandbox
-from security_framework.static_analyzer import analyze_static
-from security_framework.trace_parser import parse_trace_auto
-from security_framework.trigger import classify_command
+from security_framework.evidence.evidence_builder import build_evidence_package, write_evidence_package
+from security_framework.classification.external_target_extractor import extract_external_targets
+from security_framework.analysis.reputation_analyzer import analyze_reputation
+from security_framework.sandbox.sandbox_runner import run_in_sandbox
+from security_framework.analysis.static_analyzer import analyze_static
+from security_framework.sandbox.trace_parser import parse_trace_auto
+from security_framework.classification.trigger import classify_command
 
 
 def _route_verifier(evidence_package: dict, mode: str) -> dict:
-    """Dispatch verification to the configured backend (``cfg.verifier_mode``)."""
-    if mode == "glm":
-        return glm_verifier.verify(evidence_package)
-    return mock_verifier.verify(evidence_package)
+    """Dispatch verification to the configured backend (``cfg.verifier_mode``).
+
+    Upstream removed the original ``mock_verifier`` module; any non-``glm``
+    mode now routes to ``glm_verifier`` whose internal HOLD fallback
+    preserves the safeguard's conservative-block contract when the LLM CLI
+    is missing.
+    """
+    return glm_verifier.verify(evidence_package)
 
 
 class ShadowSandboxSafeguard:

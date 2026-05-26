@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from security_framework import static_analyzer
+from security_framework.analysis import static_analyzer
 from security_framework.config import SecurityFrameworkConfig
 
 
@@ -91,7 +91,7 @@ def test_success_with_mocked_semgrep_docker(monkeypatch, tmp_path: Path):
         docker_calls.append(list(cmd))
         return _FakeCompleted()
 
-    from security_framework.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
+    from security_framework.analysis.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
 
     res = static_analyzer.analyze_static(
         action={"type": "command", "command": "pip install ."},
@@ -125,7 +125,7 @@ def test_unavailable_when_docker_missing(monkeypatch, tmp_path: Path):
     def fake_run(*_args, **_kwargs):
         raise FileNotFoundError("docker")
 
-    from security_framework.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
+    from security_framework.analysis.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
     res = static_analyzer.analyze_static(
         action={"type": "command", "command": "pip install ."},
         context={"cwd": str(FIXTURE)},
@@ -143,7 +143,7 @@ def test_unavailable_when_semgrep_returns_empty_stdout(monkeypatch, tmp_path: Pa
         stderr = "Error: image pull failed"
         returncode = 125
 
-    from security_framework.static_analyzers import pypi_analyzer as _pypi_analyzer_mod
+    from security_framework.analysis.static_analyzers import pypi_analyzer as _pypi_analyzer_mod
     monkeypatch.setattr(
         _pypi_analyzer_mod.subprocess, "run", lambda *a, **k: _FakeCompleted(),
     )
@@ -161,7 +161,7 @@ def test_unavailable_on_timeout(monkeypatch, tmp_path: Path):
     def fake_run(*_args, **_kwargs):
         raise subprocess.TimeoutExpired(cmd="docker", timeout=30)
 
-    from security_framework.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
+    from security_framework.analysis.static_analyzers import pypi_analyzer as _pypi_analyzer_mod; monkeypatch.setattr(_pypi_analyzer_mod.subprocess, "run", fake_run)
     res = static_analyzer.analyze_static(
         action={"type": "command", "command": "pip install ."},
         context={"cwd": str(FIXTURE)},

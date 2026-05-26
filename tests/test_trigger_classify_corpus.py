@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from security_framework.trigger import classify_command
+from security_framework.classification.trigger import classify_command
 
 
 # (command, external_env_expected, hard_block_expected)

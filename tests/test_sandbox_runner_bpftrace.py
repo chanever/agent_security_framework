@@ -16,7 +16,7 @@ from typing import Iterable
 
 import pytest
 
-from security_framework import sandbox_runner
+from security_framework.sandbox import sandbox_runner
 from security_framework.config import SecurityFrameworkConfig
 
 

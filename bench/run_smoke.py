@@ -86,7 +86,7 @@ def _collect_cases() -> list[tuple[str, bool, Path]]:
 
 
 def _safeguard():
-    from security_framework.shadow_sandbox_safeguard import ShadowSandboxSafeguard
+    from security_framework.safeguard.shadow_sandbox_safeguard import ShadowSandboxSafeguard
     return ShadowSandboxSafeguard()
 
 

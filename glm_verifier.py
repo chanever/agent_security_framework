@@ -26,7 +26,31 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from security_framework import mock_verifier
+def _conservative_fallback(error: str) -> dict:
+    """Return a HOLD verdict when the LLM CLI cannot be reached.
+
+    Upstream removed ``mock_verifier`` so the safest behaviour when the GLM
+    judge fails is a conservative HOLD — the safeguard maps non-ALLOW to
+    block, preserving the gate-at-safeguard contract even without an LLM.
+    """
+    return {
+        "decision": "HOLD",
+        "overall_safety_score": 0.0,
+        "risk_score": 0.0,
+        "risk_level": "MEDIUM",
+        "task_alignment_score": 0.0,
+        "action_necessity_score": 0.0,
+        "source_trust_score": 0.0,
+        "data_isolation_score": 0.0,
+        "side_effect_safety_score": 0.0,
+        "uncertainty_score": 1.0,
+        "violated_properties": [],
+        "evidence": [],
+        "reason": f"GLM verifier unavailable ({error}); defaulting to HOLD.",
+        "recommended_action": "Manual review required.",
+        "decision_source": "glm_fallback_hold",
+        "glm_error": error,
+    }
 
 
 PROMPTS = Path(__file__).resolve().parent / "prompts"
@@ -137,29 +161,18 @@ def verify(evidence_package: dict, *, timeout: int = DEFAULT_TIMEOUT, cmd: str =
             check=False,
         )
     except FileNotFoundError as exc:
-        fallback = mock_verifier.verify(evidence_package)
-        fallback["decision_source"] = "glm_fallback_mock"
-        fallback["glm_error"] = f"CLI not found: {exc}"
-        return fallback
-    except subprocess.TimeoutExpired as exc:
-        fallback = mock_verifier.verify(evidence_package)
-        fallback["decision_source"] = "glm_fallback_mock"
-        fallback["glm_error"] = f"timeout after {timeout}s"
-        return fallback
+        return _conservative_fallback(f"CLI not found: {exc}")
+    except subprocess.TimeoutExpired:
+        return _conservative_fallback(f"timeout after {timeout}s")
 
     raw = completed.stdout or ""
     if not raw.strip():
-        fallback = mock_verifier.verify(evidence_package)
-        fallback["decision_source"] = "glm_fallback_mock"
-        fallback["glm_error"] = f"empty stdout (stderr: {(completed.stderr or '').strip()[:200]})"
-        return fallback
+        stderr_excerpt = (completed.stderr or "").strip()[:200]
+        return _conservative_fallback(f"empty stdout (stderr: {stderr_excerpt})")
 
     try:
         parsed = _extract_first_json_object(raw)
     except GLMVerifierError as exc:
-        fallback = mock_verifier.verify(evidence_package)
-        fallback["decision_source"] = "glm_fallback_mock"
-        fallback["glm_error"] = str(exc)
-        return fallback
+        return _conservative_fallback(str(exc))
 
     return _normalize(parsed, raw_output=raw)

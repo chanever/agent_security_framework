@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from security_framework.trace_parser import (
+from security_framework.sandbox.trace_parser import (
     parse_bpftrace_trace,
     parse_trace,
     parse_trace_auto,
