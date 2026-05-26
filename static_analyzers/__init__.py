@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+from . import container_image_analyzer
 from . import npm_analyzer
 from . import pypi_analyzer
 from . import repo_analyzer
@@ -29,16 +30,15 @@ from . import skill_analyzer
 
 # artifact_type → analyzer function
 _DISPATCH: dict[str, Callable] = {
-    "pypi_package":       pypi_analyzer.analyze,
-    "npm_package":        npm_analyzer.analyze,
-    "github_repo":        repo_analyzer.analyze,
-    "skill":              skill_analyzer.analyze,
-    "local_directory":    repo_analyzer.analyze,  # generic fallthrough
-    # The rest currently fall through to repo_analyzer's "language-detect
-    # then call appropriate per-language analyzer" path.
+    "pypi_package":       pypi_analyzer.analyze,        # chained semgrep (py)
+    "npm_package":        npm_analyzer.analyze,         # semgrep --lang=javascript + GuardDog npm
+    "github_repo":        repo_analyzer.analyze,        # semgrep + Gitleaks (secret scan)
+    "skill":              skill_analyzer.analyze,       # ref-walk + frontmatter + phrase
+    "container_image":    container_image_analyzer.analyze,  # Trivy vuln + misconfig
+    # Routes through repo_analyzer's chained semgrep + gitleaks chain.
+    "local_directory":    repo_analyzer.analyze,
     "requirements_file":  pypi_analyzer.analyze,
     "github_action":      repo_analyzer.analyze,
-    "container_image":    repo_analyzer.analyze,
     "mcp_server":         repo_analyzer.analyze,
 }
 
