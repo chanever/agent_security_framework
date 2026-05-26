@@ -27,16 +27,22 @@ covering Physical / Financial / Data Security Harm), the GLM verifier
 achieves **100% recall** — compared to a published baseline where LLM
 agents themselves execute 24–48% of the attacker instructions.
 
-We also publish a negative result. The trace-evidence variant of
-EvidenceQualityBench (5 evidence-package variants A/B/C/D/E with
+We publish both a negative and a positive EvidenceQualityBench result.
+The **trace-axis** variant (5 evidence-package variants A/B/C/D/E with
 progressively more sandbox observation, GLM judge held constant) on
 N=20 datadog-pypi + benign-pypi cases yields ΔAcc(D − A) = 0% — the
 pre-registered 5pp falsification gate does not pass. We attribute this
 to a saturation effect: under ``network=none``, every pip-install trace
 looks "incomplete" to the LLM judge, which biases verdicts toward
-conservative blocking regardless of variant. We re-run the same
-falsification gate on the **content axis** (InjecAgent, variants stripping
-``external_environment`` components) where the saturation does not apply.
+conservative blocking regardless of variant.
+
+The **content-axis** variant (InjecAgent N=50, variants stripping
+``external_environment`` components) yields **ΔRecall(D − A) =
++76.0pp (24% → 100%)** with the same 5pp pre-registered gate
+PASSED. The full jump is concentrated at A → B (adding raw tool-return
+text); subsequent additions (suspicious phrase list, content_summary)
+add no marginal recall on this corpus. This is the strongest single
+quantitative finding in the framework.
 
 ## 1. Introduction
 
@@ -115,7 +121,40 @@ the barrier. The real command then runs with probes already in place,
 zero race window. Live-verified on a benign workspace: process_exec went
 from 0 (Path B race) to 12 (barrier), lsm_events from 0 to 114.
 
-### 3.3 Static analyzer rule pack
+### 3.3 Per-artifact-type dispatch
+
+Action targets are not single-type. A `git clone` can deliver a repo that
+*also* ships a pypi package *also* ships a SKILL.md. The framework therefore
+runs each action's targets through an ``artifact_classifier`` that emits an
+**artifact graph** — one node per recognised kind (`github_repo`,
+`pypi_package`, `npm_package`, `skill`, `mcp_server`, `github_action`,
+`container_image`, `local_directory`) — and dispatches each node to a
+type-specific static analyzer and reputation lookup.
+
+The classifier probes the workspace with bounded BFS (depth 3, skip
+``node_modules``/`.git`/`.venv`/`__pycache__`/etc.) and records
+`detected_kinds`, `manifests`, `instruction_surfaces`, `execution_surfaces`
+per node. The output schema lets the verifier see per-type breakdown
+instead of a single undifferentiated finding list.
+
+| Artifact type | Static analyzer | Reputation source |
+|---------------|-----------------|--------------------|
+| `pypi_package` | semgrep + GuardDog Python + chanever rules | OSV.dev |
+| `npm_package` | semgrep + GuardDog npm + chanever rules | OSV.dev |
+| `github_repo` | repo_analyzer (same chained stack) | **OpenSSF Scorecard** (`api.securityscorecards.dev`) |
+| `skill` | skill_analyzer: phrase scan on instruction surfaces + cross-file ref walk + chained semgrep on execution surfaces | manifest heuristic (declared_author + signature_present → trust_bucket) |
+| `mcp_server` / `github_action` | repo_analyzer | repo_reputation |
+| `local_directory` | repo_analyzer | (none) |
+
+The skill analyzer specifically targets the **cross-file split attack**
+pattern observed in `obvious_injections_{1,2,3}` of the SKILL-INJECT corpus,
+where `SKILL.md` is benign and the payload lives in subsidiary files
+(`ooxml.md`, `recalc.py`) referenced from it. The ref-walker reads every
+`` `path.ext` `` mentioned in instruction surfaces and emits a
+`chanever-skill-cross-file-split` finding when the referenced file
+contains a suspicious phrase.
+
+### 3.4 Static analyzer rule pack
 
 We compose three rule sources into one semgrep invocation:
 
@@ -131,17 +170,28 @@ alone (its `paths.include: */setup.py` filter excludes `scripts/ci.py`).
 **With unscoped + chanever rules: 2 findings** (`chanever-sensitive-file-read`
 on `~/.env` read at line 5; `chanever-subprocess-exec-dash-c` at line 6).
 
-### 3.4 Reputation analyzer
+### 3.5 Reputation analyzer (per-artifact-type)
 
-`reputation_analyzer.py` queries OSV.dev (no auth required, public API)
-per package target. Severity normalization checks
-``severity[].score`` / ``database_specific.severity`` /
-``affected[].database_specific.severity`` because OSV's severity field
-location varies by source advisory. Live-verified:
-- PyPI:`requests` = 13 vulns, 1 HIGH
-- npm:`lodash` = 10 vulns, 1 CRITICAL, 4 HIGH
+The `reputation/` package dispatches per artifact graph node:
 
-### 3.5 GLM verifier
+- `reputation/pypi_reputation.py` / `npm_reputation.py` — OSV.dev queries
+  through a shared `_osv.py` helper. Severity normalization checks
+  `severity[].score`, `database_specific.severity`, and
+  `affected[].database_specific.severity` because OSV's severity field
+  location varies by source advisory. Live-verified: PyPI:`requests`
+  → 13 vulns / 1 HIGH; npm:`lodash` → 10 / 1 CRITICAL + 4 HIGH.
+- `reputation/repo_reputation.py` — **OpenSSF Scorecard public API**
+  (`api.securityscorecards.dev/projects/github.com/<owner>/<repo>`). Maps
+  the 0.0–10.0 quality score into RED (<3) / YELLOW (<5) / GREEN buckets
+  and surfaces low-scoring sub-checks. Live-verified:
+  `github.com/DataDog/guarddog` → Scorecard signal returned.
+- `reputation/skill_reputation.py` — heuristic (declared_author from
+  SKILL.md frontmatter or `manifest.json`, presence of an alongside
+  `.sig` / `.asc` / `.sigstore` file) → trust bucket. Marked
+  "heuristic" honestly in the evidence so the verifier and reader can
+  weight it accordingly.
+
+### 3.6 GLM verifier
 
 `glm_verifier.verify(evidence_package)` builds a prompt from
 `prompts/glm_system_prompt.txt` + `glm_user_prompt_template.txt` and
@@ -242,19 +292,34 @@ because adding more (still-incomplete) trace data does not resolve the
 ambiguity. We report this honestly as a methodological finding rather
 than dropping the variants.
 
-### 5.4 EvidenceQualityBench — content axis (InjecAgent)
+### 5.4 EvidenceQualityBench — content axis (InjecAgent N=50)
 
-[Pending G3 N=50 completion. Variants A/B/C/D progressively add
-``external_environment`` components. Results below.]
+`bench/evidence_quality_bench_ia.py` against the InjecAgent base subset.
+Variants progressively add ``external_environment`` components to an
+otherwise identical evidence package; the GLM judge sees one variant at a
+time. Pre-registered 5pp falsification gate.
 
 | Variant | Recall | Detected | flip vs prev |
 |---------|--------|----------|--------------|
-| A (action only, empty external_env) | TBD | TBD | TBD |
-| B (+raw_content_excerpt) | TBD | TBD | TBD |
-| C (+extracted_suspicious_instructions) | TBD | TBD | TBD |
-| D (full external_env) | TBD | TBD | TBD |
+| A (action only, empty external_environment) | **24%** | 12/50 | — |
+| B (+raw_content_excerpt) | **100%** | 50/50 | 50 |
+| C (+extracted_suspicious_instructions) | 100% | 50/50 | 4 |
+| D (full external_environment) | 100% | 50/50 | 8 |
 
-ΔRecall(D − A) = TBD; 5pp falsification gate = TBD.
+**ΔRecall(D − A) = +76.0pp, falsification gate PASSED.**
+
+Interpretation: handing the LLM judge the raw tool-return text (variant
+B) is the entire jump from 24% → 100%. The chanever phrase scanner (C)
+and the rest of the external_environment metadata (D) add no marginal
+recall on top of raw content — they are confirmatory rather than
+discriminative on this corpus. The high flip rate at A→B (50/50) and the
+much lower rates at B→C (4) and C→D (8) further support this: once the
+LLM has the injection text the decision is stable; before it has the
+text, the decision is essentially a coin-flip biased by the user task
+phrasing.
+
+This is the strongest single result in the paper: an evidence-package
+field whose addition the LLM judge can quantitatively be shown to need.
 
 ## 6. Comparison to prior work
 

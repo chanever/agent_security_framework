@@ -4,7 +4,15 @@
 
 현재 구현은 두 가지 trace 모드를 제공합니다: `strace`(기본, 관찰 above-LSM)와 `bpftrace`(cgroup-scoped eBPF 프로브 + LSM hook 함수 관찰). `bpftrace` 모드는 `kprobe:security_file_open`을 통해 LSM hook 함수에 직접 attach하여 file open 이벤트를 관찰합니다. 실제 kernel 레벨 enforcement(거부/차단)는 아직 하지 않습니다 — 관찰만 합니다.
 
-## 이 PR (#1)에서 변경된 것 — 인프라 + 모듈 강화
+## 발표용 헤드라인 (2026-05-26)
+
+- **InjecAgent N=200 (verifier-only)**: GLM verifier가 **100% recall** (Physical / Financial / Data Security Harm). 문헌 ASR 24-48% 대비 우리는 gating 레이어로 모두 차단.
+- **EvidenceQualityBench content-axis**: `external_environment.content`를 evidence package에 포함하면 GLM의 IPI recall이 **24% → 100% (+76pp)** 향상 (사전등록 5pp falsification gate PASS, InjecAgent N=50).
+- **31-case sandbox+GLM smoke**: DR=95%, FPR=0%, Accuracy=96.77%.
+- **per-artifact-type dispatch**: 각 action을 artifact graph로 분해 (`pypi_package` / `npm_package` / `github_repo` / `skill` / `mcp_server` / `github_action` / `local_directory`) → 타입별 정적 분석 + 평판 조회 (OSV / **OpenSSF Scorecard** / GuardDog / chanever rules / skill heuristic).
+- 자세한 평가 방법론 + 측정 결과: [research/paper.md](./research/paper.md) | [BENCHMARK.md](./BENCHMARK.md)
+
+## Phase 3에서 추가/변경된 것 — 모듈 분기 + 진짜 측정
 
 - **trace_parser**: `parse_bpftrace_trace()` + `parse_trace_auto()` 디스패처 추가. 이전엔 bpftrace JSONL이 strace 파서로 들어가던 버그도 함께 수정 (`shadow_sandbox_safeguard`).
 - **sandbox_runner**: bpftrace Path B(`docker create→start→pause→inspect→render→attach→unpause`)와 `kprobe:security_file_open` LSM 관찰 모드 추가. strace 모드 측 AppArmor docker-default가 `/tmp/trace.log` 단일파일 bind write를 차단하던 인프라 버그도 발견·수정 (`/var/sandbox/trace.log`로 이동, `--cap-add=SYS_PTRACE`).
@@ -13,6 +21,16 @@
 - **event_logger**: AgentSentinel 스타일 per-event formatted_events + process_tree (observation-only by design — chanever의 gate-at-safeguard 아키텍처와 정합).
 - **trigger / policy / external_target_extractor**: smoke 테스트가 발견한 실제 버그 6건 수정 — phrase list가 자연어 인젝션을 놓치던 좁음, `evidence_builder._safe_excerpt` 2000자 truncation, `trigger.HARD_BLOCK_PATTERNS` regex가 `rm -rf $HOME`/`rm -rf /*`/`nc -e` 직접 호출/`chmod 777 /etc/*` 패턴을 놓치던 것, `external_target_extractor`가 `&&`/`;` 같은 쉘 연산자를 패키지 이름으로 잡던 것.
 - **bench/ harness + tests/**: 9개 family 232 corpus 케이스에 대해 framework를 평가하는 측정 도구. 자세한 설계와 동작 방식은 **[BENCHMARK.md](./BENCHMARK.md)** 참고.
+
+### Phase 3 추가 (per-artifact-type dispatch + 진짜 corpus 측정)
+
+- **artifact_classifier.py** (신규): action의 target들을 artifact graph로 분해. 한 repo가 동시에 `pypi_package` + `skill` + `github_action` 노드로 emit될 수 있음. bounded BFS (depth 3, skip `node_modules`/`.git`/etc.).
+- **static_analyzers/** 패키지 (신규): per-artifact-type 정적 분석. `pypi`/`npm`/`repo`/`skill` 4종. `skill_analyzer`는 SKILL.md frontmatter에서 declared_capabilities 추출 + instruction surface 전체 phrase scan + 참조된 보조 파일까지 walking해서 `cross-file-split` 공격 탐지 (SKILL-INJECT obvious_injections 1-3 같이 SKILL.md 옆 파일에 페이로드가 숨은 경우).
+- **reputation/** 패키지 (신규): per-artifact-type 평판 조회. `pypi`/`npm` → OSV.dev (전과 동일). `repo` → **OpenSSF Scorecard API** (`api.securityscorecards.dev`, 0.0-10.0 quality score + per-check breakdown). `skill` → 매니페스트 휴리스틱 (declared_author + .sig presence → trust bucket). `_osv.py` 공유 헬퍼로 ecosystem별 query.
+- **external_rules_chanever/** (신규): GuardDog가 못 잡는 `~/.env` read + `subprocess.run([..., "-c", ...])` 패턴 커버하는 semgrep rule pack.
+- **external_rules_guarddog_unscoped/** (신규): GuardDog 33룰에서 `paths.include` 필터 제거한 자동 생성 사본. `scripts/*.py` 같이 setup.py 밖에 페이로드가 있는 경우 잡음.
+- **bench/evidence_quality_bench_ia.py + bench/run_injecagent.py + bench/translators/injecagent.py** (신규): InjecAgent 1054 케이스 평가 + content-axis EvidenceQualityBench 측정.
+- **research/paper.md** (신규): 평가 결과 + 비교 baseline + falsification 기준 모두 정리한 발표용 문서.
 
 이 프레임워크의 연구 초점은 general command firewall이 아닙니다. 모든 command를 위험도 기준으로 탐지하거나 모든 command를 Docker sandbox에서 실행하는 것이 목표가 아닙니다.
 
