@@ -153,48 +153,54 @@ def analyze_reputation(
     *,
     timeout: int = DEFAULT_TIMEOUT_S,
 ) -> dict:
-    """Look up each package target in OSV; produce signals + aggregate summary.
+    """Per-artifact-type reputation lookup via the dispatcher.
 
-    Non-package targets (URLs, repos, container images) are not handled by
-    OSV; the verifier may still surface them through
-    ``current_action.command_or_target`` but this analyzer only covers
-    package ecosystems.
+    Each artifact node (from ``artifact_classifier.classify``) is routed to
+    its type-specific lookup (PyPI/npm → OSV, github_repo → OpenSSF
+    Scorecard, skill → manifest heuristic). Signals are concatenated and
+    summary aggregates per-type counts.
     """
-    del action, context
     if not classification.get("external_env") or not targets:
         return skipped_result()
 
-    package_targets = [t for t in targets if t.get("type") == "package"]
-    if not package_targets:
-        return skipped_result("No package-ecosystem targets to look up.")
+    from security_framework import artifact_classifier
+    from security_framework import reputation as _reputation_pkg
+
+    nodes = artifact_classifier.classify(targets or [], context=context or {})
+    if not nodes:
+        return skipped_result("No artifact graph nodes for reputation lookup.")
 
     signals: list[dict] = []
     failures: list[str] = []
-    for t in package_targets:
-        name = t.get("name") or ""
-        ecosystem_id = (t.get("ecosystem") or "").lower()
-        ecosystem = _OSV_ECOSYSTEM.get(ecosystem_id)
-        if not name or not ecosystem:
+    for node in nodes:
+        sig = _reputation_pkg.lookup_node(node, timeout=timeout)
+        if sig is None:
+            continue  # type without a reputation source — silently skipped
+        if sig.get("status") == "unavailable":
+            failures.append(f"{node['artifact_type']}:{node.get('name','')}")
             continue
-        payload = _query_osv(name, ecosystem, timeout=timeout)
-        if payload is None:
-            failures.append(f"{ecosystem}:{name}")
+        if sig.get("status") == "skipped":
             continue
-        signals.append(_signal_from_payload(name, ecosystem, payload))
+        signals.append(sig)
 
     if not signals and failures:
         return {
             "status": "unavailable",
             "signals": [],
-            "summary": f"OSV API unreachable for: {', '.join(failures[:5])}",
+            "summary": f"Reputation lookups unreachable for: {', '.join(failures[:5])}",
         }
 
-    crit = sum(s["severities"].count("CRITICAL") for s in signals)
-    high = sum(s["severities"].count("HIGH") for s in signals)
-    total = sum(s["vuln_count"] for s in signals)
+    # Aggregate per-source for the summary line.
+    crit = sum(s.get("severities", []).count("CRITICAL") for s in signals)
+    high = sum(s.get("severities", []).count("HIGH") for s in signals)
+    total_vulns = sum(int(s.get("vuln_count", 0)) for s in signals)
+    by_source: dict[str, int] = {}
+    for s in signals:
+        by_source[s.get("source", "?")] = by_source.get(s.get("source", "?"), 0) + 1
+    parts = [f"{n} {src}" for src, n in sorted(by_source.items())]
     summary = (
-        f"OSV reputation: {len(signals)}/{len(package_targets)} packages checked, "
-        f"{total} total vulns ({crit} CRITICAL, {high} HIGH)"
+        f"Reputation: {len(signals)} signals ({', '.join(parts)}); "
+        f"{total_vulns} total vulns ({crit} CRITICAL, {high} HIGH)"
     )
     if failures:
         summary += f"; {len(failures)} lookup failures"

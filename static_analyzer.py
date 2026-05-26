@@ -214,33 +214,45 @@ def analyze_static(
     if scan_root is None:
         return skipped_result("Could not resolve a scan root for semgrep.")
 
-    try:
-        payload = _run_semgrep_docker(scan_root, cfg)
-    except FileNotFoundError:
-        return {
-            "status": "unavailable",
-            "findings": [],
-            "summary": "docker executable not found on host",
-        }
-    except subprocess.TimeoutExpired:
-        return {
-            "status": "unavailable",
-            "findings": [],
-            "summary": f"semgrep timed out after {cfg.semgrep_timeout}s",
-        }
-    except (RuntimeError, json.JSONDecodeError) as exc:
-        return {
-            "status": "unavailable",
-            "findings": [],
-            "summary": f"semgrep run failed: {exc}",
-        }
+    # Dispatch via artifact_classifier when targets carry concrete types.
+    # This gives per-type analyzer breakdown (skill / repo / pypi / npm) that
+    # the verifier can use instead of a single undifferentiated findings list.
+    from security_framework import artifact_classifier
+    from security_framework import static_analyzers as _analyzers_pkg
 
-    raw_findings = payload.get("results") or []
-    findings = [_normalize_finding(r, scan_root) for r in raw_findings]
+    nodes = artifact_classifier.classify(targets or [], context=context or {})
+    # Classifier contract: when a workspace exists it always emits at least
+    # one node (local_directory minimum). We do not synthesise nodes here.
+
+    per_artifact: list[dict] = []
+    merged_findings: list[dict] = []
+    for node in nodes:
+        node_result = _analyzers_pkg.analyze_node(node, cfg)
+        per_artifact.append({
+            "artifact_type": node["artifact_type"],
+            "detected_kinds": node["detected_kinds"],
+            "source": node["source"],
+            **node_result,
+        })
+        merged_findings.extend(node_result.get("findings") or [])
+
+    statuses = {r["status"] for r in per_artifact}
+    if "unavailable" in statuses and "success" not in statuses:
+        overall = "unavailable"
+        first_unavail = next(r for r in per_artifact if r["status"] == "unavailable")
+        summary = first_unavail.get("summary") or "static analysis unavailable"
+    elif statuses == {"skipped"}:
+        overall = "skipped"
+        summary = per_artifact[0].get("summary") or "static analysis skipped"
+    else:
+        overall = "success"
+        summary = _summary(merged_findings)
+
     return {
-        "status": "success",
-        "findings": findings,
-        "summary": _summary(findings),
+        "status": overall,
+        "findings": merged_findings,
+        "summary": summary,
         "scan_root": str(scan_root),
         "rules": cfg.semgrep_rules,
+        "per_artifact": per_artifact,
     }
