@@ -1,4 +1,4 @@
-from security_framework.trigger import classify_command
+from security_framework.classification.trigger import classify_command
 
 
 def test_ls_is_safe_local():

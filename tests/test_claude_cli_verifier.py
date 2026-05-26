@@ -1,7 +1,7 @@
 import json
 import subprocess
 
-from security_framework.claude_cli_verifier import build_claude_cli_command, verify
+from security_framework.verifier.claude_cli_verifier import build_claude_cli_command, verify
 from security_framework.config import SecurityFrameworkConfig
 from security_framework.verifier import verify as route_verify
 
@@ -109,7 +109,7 @@ def test_claude_cli_timeout_holds(monkeypatch, tmp_path):
 
 def test_claude_cli_nonzero_exit_holds(monkeypatch, tmp_path):
     def fake_run(command, input, capture_output, text, timeout):
-        return subprocess.CompletedProcess(command, 2, stdout="out", stderr="bad auth")
+        return subprocess.CompletedProcess(command, 2, stdout=json.dumps({"result": "bad auth result"}), stderr="bad auth")
 
     monkeypatch.setattr("subprocess.run", fake_run)
 
@@ -117,6 +117,92 @@ def test_claude_cli_nonzero_exit_holds(monkeypatch, tmp_path):
 
     assert result["decision"] == "HOLD"
     assert "bad auth" in result["evidence"][0]
+    assert any("bad auth result" in item for item in result["evidence"])
+
+
+def test_claude_cli_nonzero_exit_still_parses_structured_output(monkeypatch, tmp_path):
+    def fake_run(command, input, capture_output, text, timeout):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout=json.dumps(
+                {
+                    "structured_output": {
+                        "decision": "BLOCK",
+                        "risk_score": 0.9,
+                        "risk_level": "HIGH",
+                        "reason": "Risky despite nonzero CLI status.",
+                    }
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    result = verify({"current_action": {"command_or_target": "pip install ."}}, _config(tmp_path))
+
+    assert result["decision"] == "BLOCK"
+    assert result["reason"] == "Risky despite nonzero CLI status."
+
+
+def test_claude_cli_sparse_decision_is_enriched_from_evidence_package(monkeypatch, tmp_path):
+    def fake_run(command, input, capture_output, text, timeout):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "structured_output": {
+                        "decision": "HOLD",
+                        "risk_score": 0.65,
+                        "risk_level": "MEDIUM",
+                    }
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    result = verify(
+        {
+            "current_action": {
+                "command_or_target": "pip install .",
+                "external_env": True,
+                "why_this_action_is_being_checked": "package_install",
+            },
+            "external_interaction_analysis": {
+                "targets": [{"type": "local_package", "path": ".", "source": "pip install ."}],
+                "asset_kind": {
+                    "status": "uncertain",
+                    "kind": None,
+                    "confidence": 0.0,
+                    "reason": "classifier timed out",
+                },
+                "static_analysis": {"status": "skipped"},
+                "reputation_analysis": {"status": "skipped"},
+            },
+            "shadow_agent_execution": {
+                "trajectory": [
+                    {
+                        "command": "pip install .",
+                        "stderr": "error: externally-managed-environment",
+                        "exit_code": 1,
+                        "timed_out": False,
+                    }
+                ]
+            },
+        },
+        _config(tmp_path),
+    )
+
+    assert result["decision"] == "HOLD"
+    assert "pip install ." in result["reason"]
+    assert "risk_level=MEDIUM" in result["reason"]
+    assert any("package_install" in item for item in result["evidence"])
+    assert any("shadow execution: exit_code=1" in item for item in result["evidence"])
+    assert result["recommended_action"]
 
 
 def test_claude_cli_invalid_json_holds(monkeypatch, tmp_path):
@@ -134,7 +220,14 @@ def test_claude_cli_schema_flag_can_be_disabled(tmp_path):
     command = build_claude_cli_command(_config(tmp_path, claude_cli_use_json_schema=False))
 
     assert "--json-schema" not in command
-    assert command[:4] == ["claude", "--bare", "-p", "--output-format"]
+    assert command[:3] == ["claude", "-p", "--output-format"]
+    assert "--bare" not in command
+
+
+def test_claude_cli_bare_can_be_enabled(tmp_path):
+    command = build_claude_cli_command(_config(tmp_path, claude_cli_bare=True))
+
+    assert "--bare" in command
 
 
 def test_router_uses_claude_cli(monkeypatch, tmp_path):
@@ -159,7 +252,7 @@ def test_router_uses_claude_cli(monkeypatch, tmp_path):
             "recommended_action": "allow",
         }
 
-    monkeypatch.setattr("security_framework.claude_cli_verifier.verify", fake_verify)
+    monkeypatch.setattr("security_framework.verifier.verifier.claude_cli_verify", fake_verify)
 
     result = route_verify({"current_action": {"command_or_target": "ls -al"}}, _config(tmp_path))
 

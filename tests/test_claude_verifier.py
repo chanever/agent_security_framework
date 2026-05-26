@@ -1,8 +1,7 @@
 import json
 
-from security_framework.claude_verifier import normalize_verifier_result, verify
+from security_framework.verifier.claude_verifier import normalize_verifier_result, verify
 from security_framework.config import SecurityFrameworkConfig
-from security_framework.verifier import verify as route_verify
 
 
 def _config(tmp_path):
@@ -70,19 +69,3 @@ def test_claude_verifier_parses_json_response(monkeypatch, tmp_path):
     assert result["decision"] == "ALLOW"
     assert result["risk_score"] == 0.1
 
-
-def test_router_uses_mock_by_default():
-    result = route_verify(
-        {
-            "current_action": {"command_or_target": "ls -al"},
-            "system_trace": {"file_access": [], "network_activity": []},
-            "external_environment": {"extracted_suspicious_instructions": []},
-            "external_interaction_analysis": {
-                "static_analysis": {"findings": []},
-                "reputation_analysis": {"signals": []},
-            },
-            "allowed_scope": {"network_allowed": []},
-        }
-    )
-
-    assert result["decision"] == "ALLOW"

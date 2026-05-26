@@ -15,9 +15,9 @@ def skipped_result(reason: str = "No external package, repo, URL, or source targ
     }
 
 
-def analyze_reputation(action: dict, context: dict, targets: list[dict], classification: dict) -> dict:
+def analyze_reputation(action: dict, context: dict, targets: list[dict], classification: dict, asset_kind: dict | None = None) -> dict:
     """Return a stable placeholder result for future reputation analysis."""
-    del action, context
+    del action, context, asset_kind
     if not classification.get("external_env") or not targets:
         return skipped_result()
     return {

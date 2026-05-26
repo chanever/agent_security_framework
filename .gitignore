@@ -1,0 +1,30 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Security framework runtime artifacts
+artifacts/
+security_runs/
+*.jsonl
+*.log
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/

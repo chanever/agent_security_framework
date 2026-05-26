@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Python security framework that implements **selective shadow execution** for LLM agent CLI commands. Before an agent runs a command that touches the external environment, the framework intercepts it, replays it inside a Docker sandbox with strace tracing, builds an evidence package from the observed syscalls, and routes that package to a verifier (mock, Claude API, or Claude Code CLI). Only if the verifier returns ALLOW does the real command proceed.
+A Python security framework that implements **selective shadow execution** for LLM agent CLI commands. Before an agent runs a command that touches the external environment, the framework intercepts it, replays it inside a Docker sandbox with strace tracing, builds an evidence package from the observed syscalls, and routes that package to a verifier (Claude Code CLI). Only if the verifier returns ALLOW does the real command proceed.
 
 ## Commands
 
@@ -43,9 +43,7 @@ Agent action
               → sandbox_runner.py               # Run in Docker + strace
               → trace_parser.py                 # Parse syscalls into structured events
           → evidence_builder.py                 # Assemble Evidence Package JSON
-          → verifier.py                         # Route to backend
-              → mock_verifier.py (default)
-              → claude_verifier.py              # Anthropic API
+          → verifier.py                         # Always route to Claude Code CLI
               → claude_cli_verifier.py          # `claude -p` subprocess
       → Return "allow" or "block"
 ```
@@ -70,9 +68,8 @@ Agent action
 | `sandbox_runner.py` | Docker executor; creates dummy home with fake SSH key and AWS creds; wraps with strace |
 | `trace_parser.py` | Parses strace output; tags sensitive credential paths |
 | `evidence_builder.py` | Aggregates all signals into Evidence Package |
-| `verifier.py` | Routes Evidence Package to mock/claude/claude_cli backend |
-| `mock_verifier.py` | Heuristic rule-based fallback (no API calls) |
-| `claude_verifier.py` | Anthropic API verifier backend |
+| `verifier.py` | Routes Evidence Package to Claude Code CLI backend |
+| `claude_verifier.py` | Shared response parsing/normalization helpers and API adapter utilities |
 | `claude_cli_verifier.py` | `claude -p --output-format json` subprocess backend |
 | `policy.py` | Security constants: sensitive paths, forbidden patterns, destructive regexes |
 | `config.py` | Env-var-driven settings dataclass; default artifact root at `../artifacts/security_runs/` |
@@ -103,8 +100,8 @@ All settings in `config.py` are driven by environment variables:
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `SECURITY_FRAMEWORK_ENABLED` | `true` | Master on/off switch |
-| `VERIFIER_MODE` | `mock` | `mock`, `claude`, or `claude_cli` |
-| `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY` | — | Required for `claude` mode |
+| `VERIFIER_MODE` | `claude_cli` | Operational verifier backend; keep `claude_cli` |
+| `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY` | — | Optional API credentials for helper adapters |
 | `SANDBOX_DOCKER_IMAGE` | `shadow-agent-sandbox:latest` | Docker image name |
 | `SANDBOX_NETWORK_MODE` | `none` | Network isolation |
 | `SANDBOX_TIMEOUT` | `30` | Execution timeout (seconds) |

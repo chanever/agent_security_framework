@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from security_framework import policy
+from security_framework.evidence import policy
 
 
 EXTERNAL_CONTENT_RE = re.compile(
@@ -72,12 +72,43 @@ def build_evidence_package(
     command = action.get("command", "")
     trace = semantic_trace or {"file_access": [], "process_execution": [], "network_activity": [], "lsm_events": []}
     sandbox = sandbox_result or {}
-    external_content = _external_content(command, context.get("cwd", ""))
+    external_content = (
+        _external_content(command, context.get("cwd", ""))
+        if classification.get("external_env", classification.get("outside_env", False))
+        else {
+            "type": "none",
+            "source": "not_applicable",
+            "trust_level": "not_applicable",
+            "content_summary": "",
+            "raw_content_excerpt": "",
+            "extracted_instructions": [],
+            "extracted_suspicious_instructions": [],
+            "suspicious_code_patterns": [],
+            "linked_resources": [],
+        }
+    )
     external_analysis = external_interaction_analysis or {
         "targets": [],
+        "asset_kind": {
+            "status": "skipped",
+            "kind": None,
+            "confidence": 0.0,
+            "reason": "No analysis was requested.",
+            "evidence": [],
+        },
         "static_analysis": {"status": "skipped", "findings": [], "summary": "No analysis was requested."},
         "reputation_analysis": {"status": "skipped", "signals": [], "summary": "No analysis was requested."},
     }
+    external_analysis.setdefault(
+        "asset_kind",
+        {
+            "status": "skipped",
+            "kind": None,
+            "confidence": 0.0,
+            "reason": "Asset kind analysis was not provided.",
+            "evidence": [],
+        },
+    )
     notable_behavior = []
     if trace.get("network_activity"):
         notable_behavior.append("network_activity_observed")
