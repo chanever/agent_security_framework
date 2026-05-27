@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 from pathlib import Path
@@ -15,16 +16,46 @@ EXTERNAL_CONTENT_RE = re.compile(
 )
 
 
+# Phrases that are deliberate prefix stems (match longer forms): keep their
+# trailing word chars unbounded so "obfuscat" still matches obfuscate/obfuscation.
+_STEM_PHRASES = {"obfuscat"}
+
+
+@functools.lru_cache(maxsize=1)
+def _phrase_patterns() -> tuple[tuple[str, "re.Pattern[str]"], ...]:
+    """Compile each phrase into a word-boundary-aware pattern.
+
+    Plain substring matching flagged 'token' inside 'tokenizer', 'secret' inside
+    'secretary', etc. We add a boundary only where the phrase edge is a word
+    character, so symbol-bearing phrases ('.env', 'eval(', '| bash') and
+    deliberate stems ('obfuscat') keep working while whole-word phrases no
+    longer match inside larger identifiers. An optional plural suffix is allowed
+    before the trailing boundary so 'secret'→'secrets', 'token'→'tokens',
+    'api key'→'api keys', 'password'→'passwords' still match (blocking only
+    non-inflectional extensions like 'tokenizer'/'secretary').
+    """
+    pats = []
+    for phrase in policy.SUSPICIOUS_INSTRUCTION_PHRASES:
+        esc = re.escape(phrase.lower())
+        if phrase[:1].isalnum() or phrase[:1] == "_":
+            esc = r"(?<!\w)" + esc
+        if (phrase[-1:].isalnum() or phrase[-1:] == "_") and phrase not in _STEM_PHRASES:
+            esc = esc + r"(?:s|es)?(?!\w)"
+        pats.append((phrase, re.compile(esc)))
+    return tuple(pats)
+
+
 def extract_suspicious_instructions(text: str) -> list[str]:
     lowered = text.lower()
-    found = []
-    for phrase in policy.SUSPICIOUS_INSTRUCTION_PHRASES:
-        if phrase in lowered:
-            found.append(phrase)
-    return sorted(set(found))
+    return sorted({phrase for phrase, pat in _phrase_patterns() if pat.search(lowered)})
 
 
-def _safe_excerpt(path: Path, max_chars: int = 2000) -> str:
+def _safe_excerpt(path: Path, max_chars: int = 12000) -> str:
+    """Read up to ``max_chars`` of a file. Raised from 2000 → 12000 (2026-05-25)
+    because the smoke run observed several skill-inject contextual injections
+    placing the malicious phrase past the 2000-char boundary (e.g. release-time
+    instructions in pptx SKILL.md). 12000 covers full SKILL.md / README.md of
+    real fixtures while keeping the evidence package size bounded."""
     try:
         resolved = path.resolve()
         return resolved.read_text(encoding="utf-8", errors="replace")[:max_chars]

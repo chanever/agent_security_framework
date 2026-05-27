@@ -1,0 +1,56 @@
+rules:
+  - id: chanever-sensitive-file-read
+    message: Reads a path that commonly holds developer credentials (`.env`, ssh key, AWS creds)
+    metadata:
+      description: |
+        Catches the pattern observed in agent_mds malicious-repos cases where
+        the payload reads ~/.env / ~/.ssh/id_rsa / .aws/credentials etc.
+        GuardDog's exfiltrate-sensitive-data covers .aws/credentials and
+        .docker/config.json but not the broader credential surface.
+    severity: ERROR
+    languages:
+      - python
+    patterns:
+      - pattern-either:
+          - pattern: open($FILE, ...)
+          - pattern: open($FILE)
+          - pattern: Path($FILE).read_text(...)
+          - pattern: Path(...).joinpath($FILE).read_text(...)
+          - pattern: $X.read_text(...)
+          - pattern: $X.read_bytes(...)
+      - metavariable-pattern:
+          metavariable: $FILE
+          patterns:
+            - pattern-either:
+                - pattern: |
+                    "$STR"
+                - pattern: |
+                    '$STR'
+                - pattern: |
+                    os.path.expanduser("$STR")
+                - pattern: |
+                    os.path.expanduser('$STR')
+            - metavariable-regex:
+                metavariable: $STR
+                regex: .*\.(env|aws/credentials|ssh/id_rsa|ssh/id_ed25519|ssh/id_ecdsa|netrc|pgpass|kube/config|docker/config\.json).*
+
+  - id: chanever-subprocess-exec-dash-c
+    message: subprocess.run(["python", "-c", ...]) — dynamic code execution via interpreter
+    metadata:
+      description: |
+        Pattern in agent_mds malicious-ci-helper. Running an interpreter with
+        -c <inline code> is a common obfuscation step for executing
+        attacker-supplied code inside a benign-looking script.
+    severity: WARNING
+    languages:
+      - python
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.run([..., "-c", ...], ...)
+          - pattern: subprocess.run([..., '-c', ...], ...)
+          - pattern: subprocess.Popen([..., "-c", ...], ...)
+          - pattern: subprocess.Popen([..., '-c', ...], ...)
+          - pattern: subprocess.call([..., "-c", ...], ...)
+          - pattern: subprocess.call([..., '-c', ...], ...)
+          - pattern: os.system("$CMD -c $...")
+          - pattern: os.system('$CMD -c $...')
