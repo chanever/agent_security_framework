@@ -61,7 +61,7 @@ _RUNS_SCRIPT_RE = re.compile(
 # to a *file*, not a new command, so it is NOT a separator (splitting on it only
 # produced spurious findings on benign "echo x > file"); process substitution
 # >(...) / <(...) does run a command and is caught by _CMD_SUBST instead.
-_CMD_SPLIT = re.compile(r"&&|\|\||;|\||&|\n")
+_CMD_SPLIT = re.compile(r"&&|\|\||;|\||&|[\n\r]")
 _CMD_SUBST = re.compile(r"\$\(|`|\$\{|<\(|>\(")
 
 
