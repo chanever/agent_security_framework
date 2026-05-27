@@ -35,11 +35,17 @@ from security_framework.analysis.static_analyzer import analyze_static  # noqa: 
 BENCH = Path("/home/user/agent-mds/eval/benchmarks")
 
 
-def _cfg() -> SecurityFrameworkConfig:
+def _cfg(semgrep_timeout: int = 60) -> SecurityFrameworkConfig:
+    # 60s default: packed/obfuscated payloads (the only cases that hit the old
+    # 120s ceiling) are already caught instantly by the local obfuscation
+    # heuristic, and semgrep cannot usefully analyze a packed blob anyway. A
+    # slow-but-benign package that exceeds 60s degrades to success + timeout
+    # finding (MEDIUM) → still a correct TN. So 60s halves wall-clock without
+    # changing any outcome.
     return SecurityFrameworkConfig(
         semgrep_image="semgrep/semgrep:latest",
         semgrep_rules="p/security-audit",
-        semgrep_timeout=120,
+        semgrep_timeout=semgrep_timeout,
         workspace_copy_parent="/tmp/sa_reliability",
     ).resolve_paths()
 
@@ -58,16 +64,27 @@ def _datadog_scan_root(case_dir: Path) -> Path:
     return case_dir
 
 
-def _panel(family: str, label: str, limit: int, cmd: str, scan_resolver=None) -> list[dict]:
+def _label_by_prefix(name: str) -> str:
+    """toolhijacker cases are labelled by name prefix (benign-*/malicious-*)."""
+    return "malicious" if name.startswith("malicious") else "benign"
+
+
+def _panel(family: str, label, limit: int | None, cmd: str, scan_resolver=None) -> list[dict]:
+    """Build a panel. ``label`` is either a fixed string for the whole family,
+    or a callable taking the case-dir name (for mixed-label families). ``limit``
+    None/0 means all cases (full census)."""
     root = BENCH / family
     if not root.is_dir():
         return []
-    cases = sorted([p for p in root.iterdir() if p.is_dir()])[:limit]
+    cases = sorted([p for p in root.iterdir() if p.is_dir()])
+    if limit:
+        cases = cases[:limit]
     out = []
     for case_dir in cases:
         scan_root = scan_resolver(case_dir) if scan_resolver else case_dir
+        case_label = label(case_dir.name) if callable(label) else label
         out.append({
-            "family": family, "label": label, "case": case_dir.name,
+            "family": family, "label": case_label, "case": case_dir.name,
             "cwd": str(scan_root), "command": cmd,
         })
     return out
@@ -75,17 +92,27 @@ def _panel(family: str, label: str, limit: int, cmd: str, scan_resolver=None) ->
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cap", type=int, default=5)
+    parser.add_argument("--cap", type=int, default=0,
+                        help="cases per family (0 = all = full census)")
+    parser.add_argument("--semgrep-timeout", type=int, default=60,
+                        help="per-case semgrep timeout (s); packed cases caught by obf heuristic")
     parser.add_argument("--out", default="/tmp/static_analysis_reliability.json")
     args = parser.parse_args(argv)
-    cfg = _cfg()
+    cfg = _cfg(args.semgrep_timeout)
+    cap = args.cap or None
 
     panels = (
-        _panel("malicious-repos", "malicious", args.cap, "pip install .")
-        + _panel("datadog-pypi", "malicious", args.cap, "pip install pkg", _datadog_scan_root)
-        + _panel("benign-pypi", "benign", args.cap, "pip install pkg")
-        + _panel("skill-inject", "malicious", args.cap, "cat SKILL.md")
-        + _panel("benign-skills", "benign", args.cap, "cat SKILL.md")
+        # malicious code/packages
+        _panel("datadog-pypi", "malicious", cap, "pip install pkg", _datadog_scan_root)
+        + _panel("datadog-npm", "malicious", cap, "npm install pkg", _datadog_scan_root)
+        + _panel("malicious-repos", "malicious", cap, "pip install .")
+        + _panel("skill-inject", "malicious", cap, "cat SKILL.md")
+        # mixed-label tool hijacking (benign-*/malicious-* by name)
+        + _panel("toolhijacker", _label_by_prefix, cap, "cat SKILL.md")
+        # benign (false-positive panels)
+        + _panel("benign-pypi", "benign", cap, "pip install pkg")
+        + _panel("benign-skills", "benign", cap, "cat SKILL.md")
+        + _panel("benign-tools", "benign", cap, "cat SKILL.md")
     )
 
     confusion: dict[str, Counter] = {}
