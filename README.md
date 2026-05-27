@@ -586,9 +586,11 @@ docker run --rm \
 }
 ```
 
-추가 룰팩/평판 분석 후보 (아직 미구현):
+정적 분석 스코프: **pypi / npm / repo / skill 4종**만 분석합니다 (repo 경로에 Gitleaks secret scan 포함). `container_image`는 의도적으로 제외 — 검증할 labelled container corpus가 없어서 미평가 Trivy 경로를 넣는 대신, `docker pull` 타깃은 분류기가 탐지하되 정적 분석은 하지 않고 transparent하게 skip합니다.
 
-- Gitleaks, Trivy secret scan
+추가 룰팩 후보 (아직 미구현):
+
+- Trivy 컨테이너 스캔 (container corpus 확보 후)
 - 커스텀 supply-chain 룰팩 (setup.py install hook 패턴 등)
 
 ### `reputation_analyzer.py`

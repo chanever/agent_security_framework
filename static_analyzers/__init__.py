@@ -21,21 +21,27 @@ from __future__ import annotations
 
 from typing import Callable
 
-from . import container_image_analyzer
 from . import npm_analyzer
 from . import pypi_analyzer
 from . import repo_analyzer
 from . import skill_analyzer
 
 
-# artifact_type → analyzer function
+# artifact_type → analyzer function.
+#
+# Scope: this module statically analyzes four artifact types — pypi, npm, repo
+# (incl. local_directory / github_action / mcp_server, which route through the
+# repo chain), and skill. ``container_image`` is intentionally NOT handled here:
+# we have no labelled container corpus to validate a Trivy path, so rather than
+# ship an unevaluated analyzer we let such nodes fall through to a transparent
+# "no analyzer registered" skip. The classifier still detects `docker pull`
+# targets so the verifier sees the image was fetched.
 _DISPATCH: dict[str, Callable] = {
-    "pypi_package":       pypi_analyzer.analyze,        # chained semgrep (py)
+    "pypi_package":       pypi_analyzer.analyze,        # chained semgrep (py) + obfuscation
     "npm_package":        npm_analyzer.analyze,         # semgrep --lang=javascript + GuardDog npm
     "github_repo":        repo_analyzer.analyze,        # semgrep + Gitleaks (secret scan)
     "skill":              skill_analyzer.analyze,       # ref-walk + frontmatter + phrase
-    "container_image":    container_image_analyzer.analyze,  # Trivy vuln + misconfig
-    # Routes through repo_analyzer's chained semgrep + gitleaks chain.
+    # Route through repo_analyzer's chained semgrep + gitleaks chain.
     "local_directory":    repo_analyzer.analyze,
     "requirements_file":  pypi_analyzer.analyze,
     "github_action":      repo_analyzer.analyze,
