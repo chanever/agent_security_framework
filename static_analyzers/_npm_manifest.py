@@ -41,7 +41,7 @@ _BENIGN_HOOK_RE = re.compile(
     r"node-gyp(?:\s|$)|node-gyp-build|prebuild|prebuild-install|electron-rebuild|"
     r"husky(?:\s+install)?|patch-package|npx\s+patch-package|nuxt\s+prepare|"
     r"npx\s+only-allow\s+pnpm|prisma\s+generate|ibmtelemetry\b|"
-    r"tsc(?:\s*\|\|\s*exit\s*0)?|echo\b|true\b|:\s*$"
+    r"tsc\b|echo\b|exit\b|true\b|:\s*$"
     r")",
     re.IGNORECASE,
 )
@@ -52,6 +52,34 @@ _RUNS_SCRIPT_RE = re.compile(
     r"\./|\.\\|curl\b|wget\b|\beval\b|\|\s*(?:bash|sh)\b)",
     re.IGNORECASE,
 )
+
+# Shell command separators and command substitution. A hook is only benign if
+# EVERY sub-command is allowlisted — otherwise "node-gyp rebuild; node evil.js"
+# would be silently allowlisted by a prefix match. Order matters: "||" and "&&"
+# are matched before a bare "|".
+_CMD_SPLIT = re.compile(r"&&|\|\||;|\||\n|>")
+_CMD_SUBST = re.compile(r"\$\(|`|\$\{|<\(")
+
+
+def _classify_hook(cmd: str) -> tuple[str, list[str]] | None:
+    """Classify a lifecycle hook command, sub-command by sub-command.
+
+    Returns None when every sub-command is an allowlisted build tool, otherwise
+    ``(severity, offending_subcommands)``. Splitting on separators defeats the
+    prefix-evasion where a benign token is chained with a payload; command
+    substitution ($(...), backticks) is always treated as non-benign.
+    """
+    offending: list[str] = []
+    for part in _CMD_SPLIT.split(cmd):
+        part = part.strip()
+        if not part:
+            continue
+        if _CMD_SUBST.search(part) or not _BENIGN_HOOK_RE.match(part):
+            offending.append(part)
+    if not offending:
+        return None
+    runs_code = any(_RUNS_SCRIPT_RE.search(p) or _CMD_SUBST.search(p) for p in offending)
+    return ("HIGH" if runs_code else "MEDIUM", offending)
 
 
 def _finding(rule_id: str, severity: str, path: str, message: str) -> dict:
@@ -87,19 +115,22 @@ def scan_install_hooks(scan_root: Path) -> list[dict]:
             cmd = scripts.get(hook)
             if not isinstance(cmd, str) or not cmd.strip():
                 continue
-            if _BENIGN_HOOK_RE.match(cmd):
-                continue
-            if _RUNS_SCRIPT_RE.search(cmd):
+            verdict = _classify_hook(cmd)
+            if verdict is None:
+                continue  # every sub-command is an allowlisted build tool
+            severity, offending = verdict
+            if severity == "HIGH":
                 findings.append(_finding(
                     "npm.install-hook-runs-script", "HIGH", rel,
-                    f"{hook!r} lifecycle hook runs code at install time: {cmd!r} — "
-                    f"package-local install-time execution is the canonical npm "
-                    f"supply-chain recon/exfil vector.",
+                    f"{hook!r} lifecycle hook runs code at install time: {cmd!r} "
+                    f"(offending: {offending!r}) — package-local install-time "
+                    f"execution is the canonical npm supply-chain recon/exfil vector.",
                 ))
             else:
                 findings.append(_finding(
                     "npm.install-hook", "MEDIUM", rel,
-                    f"{hook!r} lifecycle hook present (non build-tool): {cmd!r} — "
-                    f"runs automatically on install; weigh as a risk surface.",
+                    f"{hook!r} lifecycle hook present (non build-tool): {cmd!r} "
+                    f"(offending: {offending!r}) — runs automatically on install; "
+                    f"weigh as a risk surface.",
                 ))
     return findings

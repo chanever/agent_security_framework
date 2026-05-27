@@ -2,14 +2,16 @@
 
 Differentiated from ``pypi_analyzer`` by:
 
-1. ``--lang=javascript`` flag on semgrep so only `.js`/`.ts`/`.jsx`/`.tsx`
-   files contribute, matching the GuardDog ``npm-*.yml`` rules which all
-   carry ``languages: [javascript, typescript]``.
-2. Lighter chain — GuardDog's npm-specific rules (npm-install-script,
-   npm-serialize-environment, npm-exec-base64,
-   npm-silent-process-execution, etc.) carry the load; p/security-audit
-   is dropped to reduce noise on Python files that happen to ship inside
-   the same workspace.
+1. Lighter semgrep chain — GuardDog's npm-specific rules (npm-serialize-
+   environment, npm-exec-base64, npm-silent-process-execution, etc.) carry the
+   load; p/security-audit is dropped to reduce noise on Python files that happen
+   to ship inside the same workspace. (No ``--lang`` flag: semgrep rejects
+   ``-l/--lang`` unless an inline ``-e/--pattern`` is given, so it cannot be
+   combined with ``--config`` rule dirs — the GuardDog rules self-scope via
+   their ``languages: [javascript, typescript]`` field instead.)
+2. ``_npm_manifest.scan_install_hooks`` — local package.json install-hook
+   detector, since GuardDog's npm-install-script rule path-globs out a
+   root-level package.json.
 """
 
 from __future__ import annotations
