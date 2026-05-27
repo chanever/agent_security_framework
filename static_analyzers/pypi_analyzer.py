@@ -109,6 +109,45 @@ def _run_semgrep_docker(scan_root: Path, cfg) -> dict[str, Any]:
     return _run_named(cmd, name, cfg)
 
 
+def _scan_error_findings(payload: dict) -> list[dict]:
+    """Surface semgrep rule-load / parse errors so a clean-looking result can't
+    silently mask a broken scan.
+
+    Until now we read only ``payload["results"]`` and ignored ``errors``, so a
+    rule pack that failed to load (the scan-abort and npm ``--lang`` bugs were
+    exactly this) returned ``success`` with 0 findings — indistinguishable from
+    a genuinely clean artifact. Per-rule Timeouts are expected on packed inputs
+    (handled by the obfuscation heuristic) and are NOT flagged here.
+    """
+    errors = payload.get("errors") or []
+    hard = []
+    for e in errors:
+        if not isinstance(e, dict):
+            continue
+        if e.get("level") != "error" and e.get("code") != 2:
+            continue
+        etype = e.get("type")
+        etypes = etype if isinstance(etype, list) else [etype]
+        if any("timeout" in str(t).lower() for t in etypes):
+            continue  # expected on packed/obfuscated inputs
+        hard.append(e)
+    if not hard:
+        return []
+    types = sorted({str((e.get("type") if not isinstance(e.get("type"), list)
+                         else (e.get("type") or ["unknown"])[0]) or "unknown") for e in hard})
+    detail = "; ".join(str(e.get("message", ""))[:120] for e in hard[:3])
+    return [{
+        "rule_id": "static.scan-error",
+        "severity": "MEDIUM",
+        "path": "",
+        "line": 0,
+        "message": (f"semgrep reported {len(hard)} non-timeout error(s) "
+                    f"({', '.join(types)}) — static analysis may be partial, "
+                    f"not a clean result: {detail}"),
+        "source": "semgrep-meta",
+    }]
+
+
 def _summary(findings: list[dict], rules_label: str) -> str:
     counts = {b: 0 for b in ("CRITICAL", "HIGH", "MEDIUM", "LOW")}
     for f in findings:
@@ -161,7 +200,11 @@ def analyze(node: dict, cfg) -> dict:
             "scan_root": str(scan_root),
         }
 
-    findings = [_normalize_finding(r) for r in (payload.get("results") or [])] + obf_findings
+    findings = (
+        [_normalize_finding(r) for r in (payload.get("results") or [])]
+        + obf_findings
+        + _scan_error_findings(payload)
+    )
     return {
         "status": "success",
         "findings": findings,

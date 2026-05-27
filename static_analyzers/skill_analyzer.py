@@ -56,6 +56,54 @@ def _cross_file_tier(matched: list[str]) -> tuple[str, str, list[str], list[str]
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(?P<body>.*?)\n---\s*\n", re.DOTALL)
 _REF_PATH_RE = re.compile(r"`([\w./\-]+\.(?:py|sh|md|yml|yaml|json|toml))`")
 
+# Map a suspicious phrase to the capability it implies the skill exercises.
+# Used to compare *observed* access against *declared* capabilities/tools
+# (gptlog "Permission mismatch": a PDF skill that reaches for OPENAI_API_KEY).
+_PHRASE_CATEGORY = {
+    "secret": {
+        ".env", "dotenv", "credentials", "aws credentials", "aws_access_key_id",
+        "aws_secret_access_key", "api key", "api_key", "apikey", "bearer token",
+        "access token", "auth token", "secret", "password", "token",
+        "private key", "private.key", ".pem", "id_rsa", "id_ed25519",
+        "ssh private key", "read ~/.ssh/id_rsa",
+    },
+    "network": {
+        "upload", "send to", "post to", "data to a remote", "exfiltrate",
+        "exfiltration",
+    },
+    "exec": {
+        "os.system", "subprocess.popen", "eval(", "exec(", "curl | bash",
+        "curl|bash", "wget | sh", "wget|sh", "nc -e", "ncat -e", "bash -i",
+        "reverse shell", "shell.execute", "| bash", "| sh",
+    },
+}
+
+# Declared tool/capability token -> capability categories it grants. A skill
+# that declares Bash/shell is effectively unrestricted, so it grants every
+# category (no mismatch can be claimed). Narrow declarations (Read/Write only)
+# do NOT grant network/secret/exec, so reaching for those is a real mismatch.
+_TOOL_GRANTS = {
+    "bash": {"secret", "network", "exec"}, "shell": {"secret", "network", "exec"},
+    "shell.exec": {"secret", "network", "exec"}, "exec": {"exec"},
+    "network": {"network"}, "network.egress": {"network"}, "webfetch": {"network"},
+    "websearch": {"network"}, "fetch": {"network"},
+    "secrets": {"secret"}, "secrets.read": {"secret"},
+    "read": set(), "write": set(), "edit": set(),
+    "filesystem": set(), "filesystem.read": set(), "filesystem.write": set(),
+}
+
+
+def _observed_categories(all_phrases: set[str]) -> set[str]:
+    return {cat for cat, phrases in _PHRASE_CATEGORY.items()
+            if all_phrases & phrases}
+
+
+def _granted_categories(declared_tools: list[str]) -> set[str]:
+    granted: set[str] = set()
+    for tok in declared_tools:
+        granted |= _TOOL_GRANTS.get(tok.strip().lower(), set())
+    return granted
+
 
 def _read_frontmatter(text: str) -> dict[str, str]:
     m = _FRONTMATTER_RE.search(text)
@@ -97,9 +145,11 @@ def analyze(node: dict, cfg) -> dict:
     scan_root = Path(scan_root_str)
     findings: list[dict] = []
     declared_capabilities: list[str] = []
+    declared_tools: list[str] = []
     declared_purpose = ""
     walked_refs: list[dict] = []
     phrase_hits_by_path: dict[str, list[str]] = {}
+    all_phrases: set[str] = set()
 
     # 1) Instruction surfaces — phrase scan + frontmatter
     for surface in node.get("instruction_surfaces") or []:
@@ -111,6 +161,7 @@ def analyze(node: dict, cfg) -> dict:
         matched = extract_suspicious_instructions(text)
         if matched:
             phrase_hits_by_path[surface] = matched
+            all_phrases.update(matched)
             for phrase in matched:
                 findings.append({
                     "rule_id": "chanever-skill-phrase-match",
@@ -127,9 +178,14 @@ def analyze(node: dict, cfg) -> dict:
             cap = fm.get("capabilities") or fm.get("allowed", "")
             if cap:
                 declared_capabilities = [c.strip() for c in cap.split(",") if c.strip()]
+            # allowed-tools is a list, e.g. "[Bash, Read, Write]"
+            tools_raw = fm.get("allowed-tools") or fm.get("allowed_tools", "")
+            if tools_raw:
+                declared_tools = [t.strip() for t in tools_raw.strip("[]").split(",") if t.strip()]
         # Walk references — the cross-file split attack lives here.
         for ref_path, ref_excerpt in _walk_referenced_files(text, scan_root):
             ref_matched = extract_suspicious_instructions(ref_excerpt)
+            all_phrases.update(ref_matched)
             walked_refs.append({
                 "ref_path": ref_path,
                 "ref_excerpt": ref_excerpt[:600],
@@ -157,6 +213,30 @@ def analyze(node: dict, cfg) -> dict:
                         "source": "chanever-skill",
                     })
 
+    # 1b) Permission mismatch — declared capability/tools vs observed access.
+    # Deterministic + low-FP: only fires when the skill explicitly declares a
+    # NARROW capability set yet the content reaches for an uncovered category.
+    # observed_access_categories is always emitted as structured evidence so the
+    # verifier can make the fuzzy purpose-vs-access judgment gptlog assigns it.
+    observed_access = sorted(_observed_categories(all_phrases))
+    declared = declared_capabilities + declared_tools
+    if declared:
+        granted = _granted_categories(declared)
+        exceeded = sorted(set(observed_access) - granted)
+        if exceeded:
+            findings.append({
+                "rule_id": "chanever-skill-permission-mismatch",
+                "severity": "MEDIUM",
+                "path": "SKILL.md",
+                "line": 0,
+                "message": (
+                    f"Skill declares {declared!r} but content exercises "
+                    f"un-granted capabilit(ies) {exceeded!r} — declared scope "
+                    f"does not justify this access (permission mismatch)."
+                ),
+                "source": "chanever-skill",
+            })
+
     # 2) Execution surfaces — run semgrep chain on whole scan_root
     pypi_result = pypi_analyzer.analyze(node, cfg)
     if pypi_result.get("status") == "success":
@@ -178,6 +258,8 @@ def analyze(node: dict, cfg) -> dict:
         "analyzer": "skill",
         "declared_purpose": declared_purpose,
         "declared_capabilities": declared_capabilities,
+        "declared_tools": declared_tools,
+        "observed_access_categories": observed_access,
         "walked_references": walked_refs[:10],
         "phrase_hits_by_path": phrase_hits_by_path,
     }
