@@ -9,7 +9,7 @@
 ```text
 LLM Agent가 외부환경과 상호작용하는 command를 제안하면,
 필요한 경우 Docker shadow sandbox에서 먼저 실행하고,
-trace/context/static/reputation placeholder를 Evidence Package로 만든 뒤,
+trace/context + (옵션) static analysis/reputation 결과를 Evidence Package로 만든 뒤,
 Claude Code CLI verifier가 real execution 허용 여부를 결정한다.
 ```
 
@@ -183,7 +183,7 @@ jq . /Users/justin/Desktop/test/agent_prj_test/artifacts/security_runs/<RUN_DIR>
 
 ### 10. Static/Reputation analysis 실행/비실행
 
-현재 analyzer는 placeholder입니다. 팀원이 실제 구현을 추가하기 전까지는 기본값 `false`를 권장합니다.
+static analyzer와 reputation analyzer는 실제 구현되어 있습니다(아래 "주요 module 역할" 참고). 두 모듈 모두 **증거 제공자(evidence provider)** 로, ALLOW/BLOCK을 직접 내리지 않고 정규화된 결과만 Evidence Package에 넣어 verifier가 종합하도록 합니다. 기본값은 둘 다 `false`이며(켜야 동작), Docker(semgrep) + 외부 네트워크(평판 API)가 필요합니다.
 
 실행하지 않기:
 
@@ -212,11 +212,13 @@ external_interaction_analysis.static_analysis
 external_interaction_analysis.reputation_analysis
 ```
 
-분석 대상 routing은 `external_interaction_analysis.asset_kind.kind`를 기준으로 합니다.
+분석 대상 routing은 `artifact_classifier`가 action의 target들을 artifact graph로 분해해 **타입별 analyzer**로 dispatch합니다.
 
-- `agent_skill`: skill file/source 분석
-- `package`: pip/npm/apt/local package 분석
-- `repository`: git/source repository 분석
+- `pypi_package` / `npm_package`: semgrep 체인 + 난독화·install-hook 휴리스틱 + (평판) OSV·deps.dev·known-bad
+- `github_repo`: semgrep + Gitleaks(secret) + (평판) OpenSSF Scorecard·GitHub Advisory
+- `skill`: instruction surface phrase scan + cross-file ref-walk + (평판) 배포처/작성자 신뢰도
+
+한 action이 여러 타입 node로 동시에 분해될 수 있고, 결과는 `static_analysis.per_artifact[]` / `reputation_analysis.signals[]`로 합쳐집니다.
 
 ## 해결하려는 문제
 
@@ -279,15 +281,14 @@ external_interaction_analysis.reputation_analysis
 - semantic trace parser
 - Evidence Package builder
 - static/reputation analyzer workflow gate
-- static/reputation analyzer placeholder adapter
+- **static analyzer module** (`static_analyzers/`): per-artifact-type semgrep 체인(p/security-audit + GuardDog + chanever rules) + 난독화/packed/base64 + npm install-hook 휴리스틱, pypi·npm·repo·skill 4타입
+- **reputation analyzer module** (`reputation/`): OSV.dev / deps.dev / OpenSSF Scorecard / GitHub Advisory / known-bad(DataDog·OSSF 인용) / typosquat, pypi·npm·repo·skill 4타입
 - Claude Code CLI verifier
 - malicious package, benign project, suspicious project examples
 - unit tests
 
 아직 구현하지 않음:
 
-- real static analyzer integration
-- real reputation analyzer integration
 - eBPF instrumentation
 - LSM policy enforcement
 - seccomp/AppArmor profile generation
@@ -324,6 +325,25 @@ security_framework/
       prompts/
         claude_system_prompt.txt
         claude_user_prompt_template.txt
+  artifact_classifier.py          # action targets → per-type artifact nodes (우리 모듈 dispatch)
+  static_analyzers/               # 정적분석 모듈 (우리 팀)
+    __init__.py                   #   artifact_type → analyzer dispatch
+    pypi_analyzer.py              #   semgrep 체인 + 난독화/install-hook
+    npm_analyzer.py
+    repo_analyzer.py              #   semgrep + Gitleaks
+    skill_analyzer.py             #   phrase scan + cross-file ref-walk
+    _obfuscation.py               #   packed/long-line/base64 휴리스틱
+    _npm_manifest.py              #   package.json install-hook 탐지
+  reputation/                     # 평판 조회 모듈 (우리 팀)
+    __init__.py                   #   artifact_type → lookup dispatch
+    pypi_reputation.py            #   OSV + deps.dev + PyPI metadata + typosquat
+    npm_reputation.py
+    repo_reputation.py            #   OpenSSF Scorecard + GitHub Advisory
+    skill_reputation.py           #   배포처/작성자 신뢰도
+    _osv.py / _known_bad.py / _ossf_malicious.py / _typosquat.py
+  external_rules_guarddog/        # 벤더된 DataDog GuardDog semgrep rules
+  external_rules_guarddog_unscoped/  #   paths.include 제거 변형
+  external_rules_chanever/        # 커스텀 semgrep rules
   examples/
     malicious_package/
     benign_project/
@@ -349,10 +369,19 @@ URL, package name, local package, repository, container image 같은 external ta
 external action을 Claude CLI로 `agent_skill`, `package`, `repository` 중 하나로 분류합니다. 분류 실패 또는 low confidence이면 `uncertain`으로 기록합니다.
 
 `analysis/static_analyzer.py`  
-future static analyzer adapter입니다. 현재는 placeholder입니다.
+static analysis 진입점(`analyze_static`)입니다. `artifact_classifier`로 target을 타입별 node로 분해한 뒤 `static_analyzers/` 패키지의 타입별 analyzer로 dispatch하고, 결과를 `findings[]` + `per_artifact[]`로 합칩니다.
 
 `analysis/reputation_analyzer.py`  
-future reputation analyzer adapter입니다. 현재는 placeholder입니다.
+reputation 진입점(`analyze_reputation`)입니다. 같은 방식으로 `reputation/` 패키지의 타입별 lookup으로 dispatch해 `signals[]`를 합칩니다.
+
+`artifact_classifier.py`  
+action의 target들을 `pypi_package`/`npm_package`/`github_repo`/`skill` 등 artifact node로 분해합니다(bounded BFS). 두 모듈의 공통 입력입니다.
+
+`static_analyzers/` (정적분석 모듈, 우리 팀)  
+artifact 내용(코드/스크립트/instruction)을 분석합니다. semgrep 체인(p/security-audit + GuardDog + chanever rules) + 로컬 휴리스틱(난독화 packing density, base64/hex blob, npm install-hook), repo는 Gitleaks, skill은 phrase scan + cross-file ref-walk. finding shape `{rule_id, severity, path, line, message, source}`. semgrep timeout은 `unavailable`이 아니라 휴리스틱 결과를 담은 `success`로 반환합니다.
+
+`reputation/` (평판 조회 모듈, 우리 팀)  
+artifact의 **출처 신뢰성**(작성자/배포처/이력)만 봅니다 — 내용 분석은 정적분석 몫. OSV.dev(취약점) + deps.dev(버전 이력) + 레지스트리 metadata + typosquat(Levenshtein) + known-bad(DataDog·OSSF 인용), repo는 OpenSSF Scorecard + GitHub Advisory, skill은 배포처/작성자 신뢰도. signal에 `known_bad_sources` 등 출처를 함께 기록합니다.
 
 `sandbox/sandbox_runner.py`  
 workspace copy를 만들고 Docker sandbox에서 command를 실행합니다.
@@ -400,6 +429,11 @@ CLAUDE_CLI_USE_JSON_SCHEMA=true
 SECURITY_STATIC_ANALYSIS_ENABLED=false
 SECURITY_REPUTATION_ANALYSIS_ENABLED=false
 ASSET_KIND_CLASSIFIER_CONFIDENCE_THRESHOLD=0.6
+
+# static analyzer(semgrep) 설정 — static analysis를 켤 때 사용 (Docker 필요)
+SEMGREP_IMAGE=semgrep/semgrep:latest
+SEMGREP_RULES=p/security-audit
+SEMGREP_TIMEOUT=60
 
 SECURITY_MAX_OUTPUT_CHARS=12000
 SANDBOX_WORKSPACE_COPY_PARENT=
@@ -606,30 +640,34 @@ low confidence 또는 invalid output이면:
 
 ## Static/Reputation analyzer flag
 
-현재 analyzer는 placeholder입니다. 팀원이 실제 구현을 추가하면 아래 flag로 실행 여부를 제어합니다.
+static/reputation analyzer는 실제 구현되어 있고, 아래 flag로 실행 여부를 제어합니다(기본 둘 다 `false`).
 
 ```bash
 SECURITY_STATIC_ANALYSIS_ENABLED=true
 SECURITY_REPUTATION_ANALYSIS_ENABLED=true
 ```
 
-Analyzer interface:
+Analyzer interface(safeguard가 호출하는 진입점, 시그니처 유지):
 
 ```python
-def analyze_static(action, context, targets, classification, asset_kind) -> dict:
-    ...
+def analyze_static(action, context, targets, classification, asset_kind=None) -> dict:
+    # {status, findings[], summary, scan_root, rules, per_artifact[]}
 
-def analyze_reputation(action, context, targets, classification, asset_kind) -> dict:
-    ...
+def analyze_reputation(action, context, targets, classification, asset_kind=None) -> dict:
+    # {status, signals[], summary}
 ```
 
-권장 routing:
+내부 routing(`artifact_classifier` → 타입별 모듈):
 
-- `agent_skill`: skill file/source 분석
-- `package`: pip/npm/apt/local package 분석
-- `repository`: git/source repository 분석
+- `pypi_package`/`npm_package`: semgrep 체인 + 난독화/install-hook · OSV/deps.dev/known-bad/typosquat
+- `github_repo`: semgrep + Gitleaks · OpenSSF Scorecard/GitHub Advisory
+- `skill`: phrase scan + cross-file ref-walk · 배포처/작성자 신뢰도
 
-기본값처럼 둘 다 `false`이면 analyzer는 실행하지 않고 `status=skipped`로 Evidence Package에 기록됩니다. 이 경우에도 asset-kind classification과 Claude CLI verifier 판단은 계속 수행됩니다.
+finding `severity` ∈ `CRITICAL|HIGH|MEDIUM|LOW`, `source` ∈ `semgrep|gitleaks|obfuscation-heuristic|npm-manifest-heuristic|chanever-skill|semgrep-meta`. **`status=success`+`findings=[]`는 "알려진 악성 패턴 없음"이지 "안전 증명"이 아닙니다.** `static.scan-error` finding이 있으면 룰 로드 실패로 분석이 부분적이라는 신호입니다.
+
+둘 다 `false`이면 analyzer는 실행하지 않고 `status=skipped`로 Evidence Package에 기록됩니다. 이 경우에도 asset-kind classification과 Claude CLI verifier 판단은 계속 수행됩니다.
+
+검증(우리 모듈, `bench/`): 정적분석 전수 census(192) → benign 0 FP(특이도 100%), recall 83.8%, 0 UNAVAIL. 평판은 known-bad 판정이 출처(DataDog/OSSF) 인용과 일치(`bench/reputation_reliability.py`).
 
 ## Artifact 확인
 
@@ -698,10 +736,9 @@ PYTHONPATH=security_framework pytest security_framework/tests
 
 우선순위가 높은 확장:
 
-1. real static analyzer 연결
-2. real reputation analyzer 연결
-3. analyzer result를 verifier prompt에서 더 잘 활용하도록 Evidence Package schema 안정화
-4. eBPF 기반 telemetry 추가
-5. LSM/seccomp/AppArmor 기반 enforcement profile 생성
-6. network allowlist proxy 추가
-7. artifact viewer 또는 report generator 추가
+1. analyzer result를 verifier prompt에서 더 잘 활용하도록 Evidence Package schema 안정화
+2. static analysis 커버리지 확장(container_image 등 검증 corpus 확보 후)
+3. eBPF 기반 telemetry 추가
+4. LSM/seccomp/AppArmor 기반 enforcement profile 생성
+5. network allowlist proxy 추가
+6. artifact viewer 또는 report generator 추가
