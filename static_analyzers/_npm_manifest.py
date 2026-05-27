@@ -55,10 +55,14 @@ _RUNS_SCRIPT_RE = re.compile(
 
 # Shell command separators and command substitution. A hook is only benign if
 # EVERY sub-command is allowlisted — otherwise "node-gyp rebuild; node evil.js"
-# would be silently allowlisted by a prefix match. Order matters: "||" and "&&"
-# are matched before a bare "|".
-_CMD_SPLIT = re.compile(r"&&|\|\||;|\||\n|>")
-_CMD_SUBST = re.compile(r"\$\(|`|\$\{|<\(")
+# would be silently allowlisted by a prefix match. All of &&, ||, ;, |, and a
+# lone & (background operator) start a new command, so all must split. Order
+# matters: "&&"/"||" are matched before bare "&"/"|". A bare ">" is a redirect
+# to a *file*, not a new command, so it is NOT a separator (splitting on it only
+# produced spurious findings on benign "echo x > file"); process substitution
+# >(...) / <(...) does run a command and is caught by _CMD_SUBST instead.
+_CMD_SPLIT = re.compile(r"&&|\|\||;|\||&|\n")
+_CMD_SUBST = re.compile(r"\$\(|`|\$\{|<\(|>\(")
 
 
 def _classify_hook(cmd: str) -> tuple[str, list[str]] | None:
