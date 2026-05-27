@@ -198,32 +198,50 @@ python -u bench/reputation_reliability.py
 #   typosquat-suspect, nonexistent} 패널 → known-bad 판정이 출처(DataDog/OSSF)
 #   인용과 함께 맞는지 대조
 
-# 정적 모듈 (docker semgrep, 케이스당 최대 semgrep_timeout초)
-python -u bench/static_analysis_reliability.py --cap 6
+# 정적 모듈 — 전수 census (docker semgrep, 8 패밀리 192 케이스)
+python -u bench/static_analysis_reliability.py            # --cap 0 = 전수
+python -u bench/static_analysis_reliability.py --cap 6    # 빠른 부분집합
 ```
 
-정적 모듈 contingency (cap 6, 패밀리별):
+정적 모듈 전수 census (192 케이스, `--semgrep-timeout 60`):
 
-| family | 결과 |
-|---|---|
-| datadog-pypi (malicious) | 6 TP — packed 페이로드는 semgrep timeout이어도 `_obfuscation` 휴리스틱이 탐지 |
-| malicious-repos (malicious) | 4 TP / 1 FN / 1 UNAVAIL |
-| skill-inject (malicious) | 6 TP — `cross-file-split` phrase walk |
-| benign-pypi (benign) | 6 TN — **0 FP** (난독화 휴리스틱이 정상 대형 모듈을 오탐하지 않음) |
-| benign-skills (benign) | 5 TN / 1 FP |
+| family | 케이스 | 결과 |
+|---|---|---|
+| datadog-pypi (malicious) | 50 | 35 TP / 15 FN |
+| datadog-npm (malicious) | 50 | **47 TP / 3 FN** (npm `--lang` 버그 수정 전 0/50 UNAVAIL) |
+| malicious-repos (malicious) | 8 | 5 TP / 3 FN |
+| skill-inject (malicious) | 40 | 36 TP / 4 FN |
+| toolhijacker (mixed) | 11 | 6 TP / 5 TN (악성6·정상5 전부 정답) |
+| benign-pypi (benign) | 15 | 15 TN |
+| benign-skills (benign) | 10 | 10 TN |
+| benign-tools (benign) | 8 | 8 TN |
+| **합계** | **192** | **129 TP / 25 FN / 38 TN** |
+
+- **특이도 100%**: benign 38건 전수 **0 FP** (모든 휴리스틱·phrase tiering이 오탐 없음).
+- **악성 탐지율(recall) 129/154 = 83.8%** (npm 94%, skill 90%, datadog-pypi 70%).
+- **0 UNAVAIL, 0 누수 컨테이너** (named-container 회수 + npm `--lang` 수정).
+
+FN 25건 정직한 분류 (정적분석의 설계상 한계):
+
+- **24건 = `success` + 0 findings** — 분석기는 정상 동작했으나 페이로드가 알려진
+  패턴(semgrep 룰/phrase/휴리스틱)과 안 맞음. typosquat(이름 기반 → **평판 모듈**
+  담당), GuardDog 미커버 recon 코드, phrase list 밖 주입 문구 등. 다층 구조
+  (평판+샌드박스+verifier)가 메우도록 설계된 영역이지 버그가 아님.
+- **1건 = `malicious-docker-starter` (skipped)** — Dockerfile-only 공격. Dockerfile
+  정적분석기 없음(container/Trivy는 검증 corpus 부재로 스코프 제외 — README 참고).
 
 신뢰성 설계 포인트:
 
-- **UNAVAIL은 FP/FN과 분리 집계** — docker 미동작 등 "분석기가 못 돈 것"을
-  "틀린 판정"으로 오염시키지 않음 (timeout은 더 이상 UNAVAIL이 아니라, 휴리스틱
-  결과를 담은 `success`).
-- **난독화 휴리스틱은 packing density(bytes/line)** 기준이라 정상 대형 소스
-  (click `core.py` 137KB)는 통과하고 packed 페이로드(EZBEAMER 6800 bytes/line)만
-  잡음. byte-entropy는 정상 소스가 더 높아 채택하지 않음(근거는 `_obfuscation.py`
-  docstring).
-- 남은 1 FP(`benign-skills/agent-identifier`)는 난독화가 아니라
-  `chanever-skill-cross-file-split`이 일반 문구 `'send to'`에 반응한 것 —
-  phrase list 정밀도 이슈로 별도 추적.
+- **UNAVAIL은 FP/FN과 분리 집계** — "분석기가 못 돈 것"을 "틀린 판정"으로 오염
+  안 시킴. timeout은 UNAVAIL이 아니라 휴리스틱 결과를 담은 `success`.
+- **rules-ran 검증**: semgrep `errors[]`를 확인해 룰 로드/파싱 실패를
+  `static.scan-error`로 surface — `0 findings`가 침묵의 실패를 못 가리게.
+- **난독화 = packing density(bytes/line)**: 정상 대형 소스(click `core.py` 137KB)는
+  통과, packed 페이로드(EZBEAMER 6800 bytes/line)만 탐지. + per-line base64/hex
+  blob. byte-entropy는 정상 소스가 더 높아 채택 안 함(`_obfuscation.py` docstring).
+- **phrase word-boundary**: `token`이 `tokenizer`에 안 걸림(복수형은 허용).
+- **permission mismatch**: skill의 declared 권한 vs `observed_access_categories`
+  비교(좁게 선언+초과 접근 시 finding); 모호한 목적-권한 판단은 verifier 몫.
 
 ---
 
