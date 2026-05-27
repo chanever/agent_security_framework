@@ -50,9 +50,6 @@ def extract_external_targets(action: dict, context: dict | None = None, classifi
     if len(words) >= 3 and words[0] in {"pip", "pip3"} and words[1] == "install":
         skip_next = False
         for name in words[2:]:
-            # Stop at shell operators — anything after is a separate command.
-            if name in {"&&", "||", ";", "|", "&", ">", ">>", "<"}:
-                break
             if skip_next:
                 targets.append({"type": "requirements_file", "path": name, "source": command})
                 skip_next = False
@@ -69,24 +66,18 @@ def extract_external_targets(action: dict, context: dict | None = None, classifi
 
     if len(words) >= 3 and words[0] == "npm" and words[1] in {"install", "i", "add"}:
         for name in words[2:]:
-            if name in {"&&", "||", ";", "|", "&", ">", ">>", "<"}:
-                break
             if name.startswith("-"):
                 continue
             targets.append(_package_target("npm", name, command))
 
     if len(words) >= 3 and words[0] == "yarn" and words[1] == "add":
         for name in words[2:]:
-            if name in {"&&", "||", ";", "|", "&", ">", ">>", "<"}:
-                break
             if name.startswith("-"):
                 continue
             targets.append(_package_target("npm", name, command))
 
     if "apt install" in lowered or "apt-get install" in lowered:
         for name in words[2:]:
-            if name in {"&&", "||", ";", "|", "&", ">", ">>", "<"}:
-                break
             if name.startswith("-"):
                 continue
             targets.append(_package_target("apt", name, command))

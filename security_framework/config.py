@@ -19,6 +19,11 @@ def _int_env(name: str, default: int) -> int:
     return default if value is None or value == "" else int(value)
 
 
+def _float_env(name: str, default: float) -> float:
+    value = os.getenv(name)
+    return default if value is None or value == "" else float(value)
+
+
 @dataclass
 class SecurityFrameworkConfig:
     """Runtime settings sourced from environment variables."""
@@ -28,17 +33,25 @@ class SecurityFrameworkConfig:
     sandbox_docker_image: str = os.getenv("SANDBOX_DOCKER_IMAGE", "shadow-agent-sandbox:latest")
     sandbox_timeout: int = _int_env("SANDBOX_TIMEOUT", 30)
     sandbox_network_mode: str = os.getenv("SANDBOX_NETWORK_MODE", "none")
-    trace_mode: str = os.getenv("TRACE_MODE", "strace")  # "strace" | "bpftrace"
-    bpftrace_image: str = os.getenv("BPFTRACE_IMAGE", "quay.io/iovisor/bpftrace:master")
-    bpftrace_attach_timeout: int = _int_env("BPFTRACE_ATTACH_TIMEOUT", 10)
-    bpftrace_sentinel_timeout: int = _int_env("BPFTRACE_SENTINEL_TIMEOUT", 2)
-    verifier_mode: str = os.getenv("VERIFIER_MODE", "mock")
-    semgrep_image: str = os.getenv("SEMGREP_IMAGE", "semgrep/semgrep:latest")
-    semgrep_rules: str = os.getenv("SEMGREP_RULES", "p/security-audit")
-    semgrep_timeout: int = _int_env("SEMGREP_TIMEOUT", 240)
+    trace_mode: str = os.getenv("TRACE_MODE", "strace")
+    verifier_mode: str = os.getenv("VERIFIER_MODE", "claude_cli")
+    claude_api_key: str = os.getenv("ANTHROPIC_API_KEY", os.getenv("CLAUDE_API_KEY", ""))
+    claude_api_url: str = os.getenv("CLAUDE_API_URL", "https://api.anthropic.com/v1/messages")
+    claude_api_version: str = os.getenv("CLAUDE_API_VERSION", "2023-06-01")
+    claude_model: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+    claude_max_tokens: int = _int_env("CLAUDE_MAX_TOKENS", 1200)
+    claude_timeout: int = _int_env("CLAUDE_TIMEOUT", 30)
+    claude_cli_command: str = os.getenv("CLAUDE_CLI_COMMAND", "claude")
+    claude_cli_timeout: int = _int_env("CLAUDE_CLI_TIMEOUT", 60)
+    claude_cli_model: str = os.getenv("CLAUDE_CLI_MODEL", "sonnet")
+    claude_cli_max_turns: int = _int_env("CLAUDE_CLI_MAX_TURNS", 1)
+    claude_cli_bare: bool = _bool_env("CLAUDE_CLI_BARE", False)
+    claude_cli_use_json_schema: bool = _bool_env("CLAUDE_CLI_USE_JSON_SCHEMA", True)
     focus_mode: str = os.getenv("SECURITY_FOCUS_MODE", "external_only")
-    strict_evidence_for_safe_commands: bool = _bool_env("SECURITY_STRICT_EVIDENCE_FOR_SAFE_COMMANDS", False)
     shadow_sandbox_only_for_external_env: bool = _bool_env("SHADOW_SANDBOX_ONLY_FOR_EXTERNAL_ENV", True)
+    static_analysis_enabled: bool = _bool_env("SECURITY_STATIC_ANALYSIS_ENABLED", False)
+    reputation_analysis_enabled: bool = _bool_env("SECURITY_REPUTATION_ANALYSIS_ENABLED", False)
+    asset_kind_classifier_confidence_threshold: float = _float_env("ASSET_KIND_CLASSIFIER_CONFIDENCE_THRESHOLD", 0.6)
     max_output_chars: int = _int_env("SECURITY_MAX_OUTPUT_CHARS", 12000)
     workspace_copy_parent: str = os.getenv("SANDBOX_WORKSPACE_COPY_PARENT", "")
     artifact_root: str = os.getenv("SECURITY_ARTIFACT_ROOT", "")

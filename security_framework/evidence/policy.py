@@ -59,106 +59,15 @@ REVERSE_SHELL_PATTERNS = [
 NETWORK_TOOL_PATTERN = re.compile(r"\b(curl|wget|nc|ncat|telnet|ssh|scp|rsync)\b")
 
 SUSPICIOUS_INSTRUCTION_PHRASES = [
-    # Original prompt-injection seed (kept; substring match against lower-cased text)
     "ignore previous instructions",
-    "ignore the above",
-    "ignore prior instructions",
-    "ignore all previous",
-    "disregard previous",
-    "forget previous",
-    "you must now",
-    "override system prompt",
-    "ignore system prompt",
-    "reveal system prompt",
-    "jailbreak",
-    "developer mode override",
-    # Credential / secret signatures
     "read ~/.ssh/id_rsa",
     "id_rsa",
-    "id_ed25519",
-    "ssh private key",
-    "private key",
-    "private.key",
-    ".pem",
-    ".env",
-    "dotenv",
-    "credentials",
-    "aws credentials",
-    "aws_access_key_id",
-    "aws_secret_access_key",
-    "api key",
-    "api_key",
-    "apikey",
-    "bearer token",
-    "access token",
-    "auth token",
+    "upload",
+    "token",
     "secret",
     "password",
-    "token",
-    # Exfiltration verbs
-    "upload",
-    "exfiltrate",
-    "exfiltration",
-    "send to",
-    "post to",
-    "data to a remote",
-    # Supply-chain / install-hook signatures
-    "cmdclass",
-    "install_requires",  # benign alone but raises attention when combined with other markers
-    "subprocess.popen",
-    "os.system",
-    "eval(",
-    "exec(",
-    "base64.b64decode",
-    "pickle.loads",
-    # Network / shell payload signatures (narrow — these patterns are
-    # rare in benign documentation)
-    "curl | bash",
-    "curl|bash",
-    "wget | sh",
-    "wget|sh",
-    "nc -e",
-    "ncat -e",
-    "bash -i",
-    "reverse shell",
-    "shell.execute",
-    "| bash",
-    "| sh",
-    # Destructive directives (narrow — bare "rm -rf" appears in legitimate
-    # cleanup docs; require dangerous targets)
-    "rm -rf /",
-    "rm -rf ~",
-    "rm -rf $",
-    "delete the original",
-    "wipe the",
-    "destroy the",
-    # Obfuscation hints
-    "base64",
-    "rot13",
-    "obfuscat",
-    # Skill-injection contextual cues (from skill-inject fixture corpus)
-    "password-protected archive",
-    "password-protected zip",
-    "manually create a password",
-    "delete the original file",
+    "aws credentials",
 ]
-
-# Phrases generic enough to occur in benign skill/package docs — a tutorial that
-# says "store your API key in .env" or "send to the channel". On their own these
-# are weak evidence. The skill cross-file rule only escalates to HIGH when a
-# strong marker is present OR >=2 distinct weak phrases co-occur (the
-# credential-exfil combo, e.g. ".env" + "upload"). A lone weak phrase in a
-# referenced file is reported at MEDIUM, not HIGH, so a benign doc mentioning
-# one sensitive word is not treated as a split attack. Everything NOT in this
-# set is a strong, high-confidence marker (prompt-injection, RCE, specific key
-# artifacts, destructive ops).
-WEAK_INSTRUCTION_PHRASES = frozenset({
-    "private key", "private.key", ".pem", ".env", "dotenv",
-    "credentials", "api key", "api_key", "apikey",
-    "bearer token", "access token", "auth token",
-    "secret", "password", "token", "upload",
-    "send to", "post to", "base64",
-})
 
 
 def is_sensitive_path(path: str) -> bool:
