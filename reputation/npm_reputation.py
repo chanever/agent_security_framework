@@ -104,6 +104,18 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
     downloads = _npm_downloads_signal(name, timeout=timeout)
     depsdev = _depsdev_signals(name, timeout=timeout)
 
+    from reputation._typosquat import check as _typosquat_check
+    typosquat = _typosquat_check(name, "npm")
+
+    from reputation._known_bad import is_known_bad_npm
+    from reputation._ossf_malicious import is_ossf_malicious
+    known_bad_datadog = is_known_bad_npm(name)
+    known_bad_ossf = is_ossf_malicious(name, "npm")
+    known_bad = known_bad_datadog or known_bad_ossf
+    known_bad_sources = [
+        s for s, hit in [("DataDog", known_bad_datadog), ("OSSF", known_bad_ossf)] if hit
+    ]
+
     dl = downloads.get("downloads_last_week")
     signal = {
         "source": "npm-multi",
@@ -119,6 +131,13 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
         "popularity_bucket": _popularity_bucket(dl),
         "version_count": depsdev.get("version_count"),
         "earliest_published": depsdev.get("earliest_published"),
+        "typosquat": {
+            "status": typosquat["status"],
+            "closest": typosquat["closest"],
+            "distance": typosquat["distance"],
+        },
+        "known_bad_package": known_bad,
+        "known_bad_sources": known_bad_sources,
     }
     crit = signal["severities"].count("CRITICAL")
     high = signal["severities"].count("HIGH")
@@ -130,5 +149,11 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
         summary_parts.append(
             f"deps.dev {depsdev['version_count']} versions, first {depsdev.get('earliest_published','?')[:10]}"
         )
+    if typosquat["status"] == "near":
+        summary_parts.append(
+            f"⚠ TYPOSQUAT-SUSPECT: {typosquat['distance']} edits from {typosquat['closest']!r}"
+        )
+    if known_bad:
+        summary_parts.insert(0, f"⚠ KNOWN-BAD-PACKAGE ({'+'.join(known_bad_sources)})")
     signal["summary"] = f"npm:{name} — " + "; ".join(summary_parts)
     return signal

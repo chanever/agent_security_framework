@@ -87,6 +87,20 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
     # 3) PyPI metadata
     pypi_meta = _pypi_metadata_signals(name, timeout=timeout)
 
+    # 4) Typosquat — local Levenshtein vs popular PyPI top-100
+    from reputation._typosquat import check as _typosquat_check
+    typosquat = _typosquat_check(name, "PyPI")
+
+    # 5) Known-bad package — two independent primary sources.
+    from reputation._known_bad import is_known_bad_pypi
+    from reputation._ossf_malicious import is_ossf_malicious
+    known_bad_datadog = is_known_bad_pypi(name)
+    known_bad_ossf = is_ossf_malicious(name, "pypi")
+    known_bad = known_bad_datadog or known_bad_ossf
+    known_bad_sources = [
+        s for s, hit in [("DataDog", known_bad_datadog), ("OSSF", known_bad_ossf)] if hit
+    ]
+
     signal = {
         "source": "pypi-multi",
         "target_type": "package",
@@ -102,6 +116,13 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
         "declared_author": pypi_meta.get("declared_author", ""),
         "license": pypi_meta.get("license", ""),
         "release_count": pypi_meta.get("release_count"),
+        "typosquat": {
+            "status": typosquat["status"],
+            "closest": typosquat["closest"],
+            "distance": typosquat["distance"],
+        },
+        "known_bad_package": known_bad,
+        "known_bad_sources": known_bad_sources,
     }
     crit = signal["severities"].count("CRITICAL")
     high = signal["severities"].count("HIGH")
@@ -111,5 +132,9 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
         parts.append(f"deps.dev {depsdev['version_count']} versions, first {depsdev.get('earliest_published','?')[:10]}")
     if pypi_meta.get("release_count") is not None:
         parts.append(f"PyPI {pypi_meta['release_count']} releases, author={pypi_meta['declared_author'][:40]!r}")
+    if typosquat["status"] == "near":
+        parts.append(f"⚠ TYPOSQUAT-SUSPECT: {typosquat['distance']} edits from {typosquat['closest']!r}")
+    if known_bad:
+        parts.insert(0, f"⚠ KNOWN-BAD-PACKAGE ({'+'.join(known_bad_sources)})")
     signal["summary"] = f"PyPI:{name} — " + "; ".join(parts)
     return signal
