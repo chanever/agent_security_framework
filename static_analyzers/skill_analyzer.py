@@ -31,7 +31,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from security_framework.evidence_builder import _safe_excerpt, extract_suspicious_instructions
+from security_framework.evidence.evidence_builder import _safe_excerpt, extract_suspicious_instructions
 
 from . import pypi_analyzer
 

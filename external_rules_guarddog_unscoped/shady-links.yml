@@ -50,7 +50,6 @@ rules:
             - pattern-regex: (https?:\/\/[^\n\[\/\?#"']*?(?:\[(([A-Fa-f0-9]{1,4}:){0,7}|:):?[A-Fa-f0-9]{1,4}(:[A-Fa-f0-9]{1,4}){0,7})\])
     languages:
       - javascript
-      - json
       - python
       - typescript
       - go

@@ -28,7 +28,9 @@
 - **static_analyzers/** 패키지 (신규): per-artifact-type 정적 분석. `pypi`/`npm`/`repo`/`skill` 4종. `skill_analyzer`는 SKILL.md frontmatter에서 declared_capabilities 추출 + instruction surface 전체 phrase scan + 참조된 보조 파일까지 walking해서 `cross-file-split` 공격 탐지 (SKILL-INJECT obvious_injections 1-3 같이 SKILL.md 옆 파일에 페이로드가 숨은 경우).
 - **reputation/** 패키지 (신규): per-artifact-type 평판 조회. `pypi`/`npm` → OSV.dev (전과 동일). `repo` → **OpenSSF Scorecard API** (`api.securityscorecards.dev`, 0.0-10.0 quality score + per-check breakdown). `skill` → 매니페스트 휴리스틱 (declared_author + .sig presence → trust bucket). `_osv.py` 공유 헬퍼로 ecosystem별 query.
 - **external_rules_chanever/** (신규): GuardDog가 못 잡는 `~/.env` read + `subprocess.run([..., "-c", ...])` 패턴 커버하는 semgrep rule pack.
-- **external_rules_guarddog_unscoped/** (신규): GuardDog 33룰에서 `paths.include` 필터 제거한 자동 생성 사본. `scripts/*.py` 같이 setup.py 밖에 페이로드가 있는 경우 잡음.
+- **external_rules_guarddog_unscoped/** (신규): GuardDog 룰에서 `paths.include` 필터 제거한 자동 생성 사본. `scripts/*.py` 같이 setup.py 밖에 페이로드가 있는 경우 잡음. **신뢰성 수정**: `npm-install-script.yml`은 `languages: [json, ...]`이 semgrep `UnknownLanguageError`를 일으켜 **전체 스캔을 중단**(rc=8, 0 findings)시키던 것을 발견 → 제외(32룰). 이 한 룰 때문에 모든 악성 케이스가 0 finding으로 나오던 silent failure였음.
+- **static_analyzers/_obfuscation.py** (신규): 난독화/분석저항 휴리스틱. 악성 패키지는 페이로드를 packed single-line/거대 파일로 만들어 정적 분석을 회피하는 경향 → 이를 신호로 사용. (1) `obf.packed-source-file`: oversize(≥50KB) **그리고** 고밀도(≥500 bytes/line)일 때만 (정상 대형 모듈 click `core.py` 137KB는 ~40 bytes/line이라 통과; EZBEAMER 151KB는 ~6800 bytes/line). (2) `obf.long-single-line`: ≥2000자 단일 라인. (3) semgrep timeout 시 `unavailable` 대신 로컬 휴리스틱 결과 + `obf.analysis-timeout`(MEDIUM)을 담아 **`success`로 반환** — 분석 회피 자체가 증거. byte-level Shannon entropy는 정상 소스(5.0–5.6 bits/byte)가 실제 packed 페이로드(EZBEAMER 3.02)보다 높아 신뢰성이 없어 **채택하지 않음**. 측정: benign-pypi/skills 0 FP, datadog packed 페이로드 전수 탐지.
+- **컨테이너 누수 수정**: `subprocess.run(timeout=)`은 `docker run` 클라이언트만 죽이고 컨테이너는 detached로 계속 실행되어 누적(데몬 고갈→스캔이 갈수록 느려짐). semgrep run에 `--name` 부여 후 timeout 시 `docker rm -f`로 회수.
 - **bench/evidence_quality_bench_ia.py + bench/run_injecagent.py + bench/translators/injecagent.py** (신규): InjecAgent 1054 케이스 평가 + content-axis EvidenceQualityBench 측정.
 - **research/paper.md** (신규): 평가 결과 + 비교 baseline + falsification 기준 모두 정리한 발표용 문서.
 
@@ -567,8 +569,8 @@ docker run --rm \
 
 `status` 값:
 
-- `success` — semgrep이 정상 실행됨 (findings는 비어있을 수 있음)
-- `unavailable` — docker 미설치, 이미지 pull 실패, timeout
+- `success` — 분석이 사용 가능한 증거를 산출함. semgrep 정상 실행(findings 비어있을 수 있음), **또는 semgrep timeout이지만 로컬 난독화 휴리스틱이 완료된 경우**(이때 findings에 `obf.*` + `obf.analysis-timeout`(MEDIUM) 포함)
+- `unavailable` — docker 미설치/이미지 pull 실패 등 인프라 장애 **그리고** 난독화 휴리스틱도 finding이 없는 경우. (timeout은 더 이상 `unavailable`이 아님 — 분석 회피 자체가 증거이므로 휴리스틱 결과와 함께 `success`로 반환)
 - `skipped` — `external_env=false` 또는 scan 대상 코드 없음
 
 정규화된 finding shape:

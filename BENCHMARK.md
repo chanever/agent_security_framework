@@ -185,6 +185,46 @@ python -u bench/run_smoke.py
 python -u bench/run_live_gates.py
 ```
 
+### 모듈별 신뢰성 검증 — labelled corpus 위 contingency
+
+평판/정적 모듈이 **자기가 주장하는 일을 실제로 하는지**를 라벨링된 패널 위에서
+검증하는 harness 두 개. "검출률을 높였다"가 아니라 "모듈이 X라고 말하면 X가
+ground truth와 맞는가"를 정직하게 표로 보여주는 것이 목적.
+
+```bash
+# 평판 모듈 (docker 불필요, 외부 API 호출)
+python -u bench/reputation_reliability.py
+#   pypi/npm/repo/skill 4종 × {benign-popular, known-malicious,
+#   typosquat-suspect, nonexistent} 패널 → known-bad 판정이 출처(DataDog/OSSF)
+#   인용과 함께 맞는지 대조
+
+# 정적 모듈 (docker semgrep, 케이스당 최대 semgrep_timeout초)
+python -u bench/static_analysis_reliability.py --cap 6
+```
+
+정적 모듈 contingency (cap 6, 패밀리별):
+
+| family | 결과 |
+|---|---|
+| datadog-pypi (malicious) | 6 TP — packed 페이로드는 semgrep timeout이어도 `_obfuscation` 휴리스틱이 탐지 |
+| malicious-repos (malicious) | 4 TP / 1 FN / 1 UNAVAIL |
+| skill-inject (malicious) | 6 TP — `cross-file-split` phrase walk |
+| benign-pypi (benign) | 6 TN — **0 FP** (난독화 휴리스틱이 정상 대형 모듈을 오탐하지 않음) |
+| benign-skills (benign) | 5 TN / 1 FP |
+
+신뢰성 설계 포인트:
+
+- **UNAVAIL은 FP/FN과 분리 집계** — docker 미동작 등 "분석기가 못 돈 것"을
+  "틀린 판정"으로 오염시키지 않음 (timeout은 더 이상 UNAVAIL이 아니라, 휴리스틱
+  결과를 담은 `success`).
+- **난독화 휴리스틱은 packing density(bytes/line)** 기준이라 정상 대형 소스
+  (click `core.py` 137KB)는 통과하고 packed 페이로드(EZBEAMER 6800 bytes/line)만
+  잡음. byte-entropy는 정상 소스가 더 높아 채택하지 않음(근거는 `_obfuscation.py`
+  docstring).
+- 남은 1 FP(`benign-skills/agent-identifier`)는 난독화가 아니라
+  `chanever-skill-cross-file-split`이 일반 문구 `'send to'`에 반응한 것 —
+  phrase list 정밀도 이슈로 별도 추적.
+
 ---
 
 ## 7. 비교 대상 (Phase 3 PR에서 실측)
