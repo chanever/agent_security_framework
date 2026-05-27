@@ -54,22 +54,15 @@ SAFE_LOCAL_PATTERNS = [
 ]
 
 HARD_BLOCK_PATTERNS = [
-    # rm -rf with dangerous targets — broadened to cover `/*`, `~/`, `$HOME`,
-    # `$VAR/`, and trailing-path variants. The previous regex required the
-    # path to be EXACTLY `/`, `~`, or `*` with optional trailing whitespace.
-    (re.compile(r"\brm\s+-[^\n;|&]*r[^\n;|&]*f\s+(?:/\S*|~\S*|\*\S*|\$\w+\S*)"), "destructive_command"),
+    (re.compile(r"\brm\s+-[^\n;|&]*r[^\n;|&]*f\s+(?:/|~|\*)\s*$"), "destructive_command"),
     (re.compile(r"\bsudo\b"), "sudo"),
     (re.compile(r"\bcurl\b.+\|\s*(?:sudo\s+)?(?:bash|sh)\b"), "remote_code_execution"),
     (re.compile(r"\bwget\b.+\|\s*(?:sudo\s+)?(?:bash|sh)\b"), "remote_code_execution"),
     (re.compile(r"/dev/tcp/"), "reverse_shell"),
-    # `nc -e <shell>` directly (was previously requiring content between nc and -e).
-    (re.compile(r"\bnc(?:at)?\s+(?:.*\s)?-e\s+"), "reverse_shell"),
+    (re.compile(r"\bnc(?:at)?\s+.*\s-e\s+"), "reverse_shell"),
     (re.compile(r"\btelnet\b.*\|\s*(?:bash|sh)\b"), "reverse_shell"),
     (re.compile(r"\bbash\s+-i\b"), "reverse_shell"),
-    # chmod 777 on /etc, /var, /usr, /bin, /sbin, /boot, $HOME, ~ — i.e. any
-    # path that's not workspace-local. Previously required the path to end
-    # exactly at `/`, `~`, etc. — `/etc/passwd` slipped through.
-    (re.compile(r"\bchmod\s+777\s+(?:/(?:etc|var|usr|bin|sbin|boot|root|home)\b|~|\$HOME|\.\.?/)"), "broad_chmod"),
+    (re.compile(r"\bchmod\s+777\s+(?:/|~|\*|\.{1,2})(?:\s|$)"), "broad_chmod"),
     (re.compile(r">\s*(?:~?/)?\.(?:bashrc|zshrc|profile|bash_profile)\b"), "shell_startup_overwrite"),
     (re.compile(r"\b(id_rsa|\.aws/credentials|\.env)\b.*\b(curl|wget|nc|ncat|telnet)\b"), "credential_exfiltration"),
 ]

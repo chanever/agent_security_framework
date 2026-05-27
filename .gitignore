@@ -1,21 +1,30 @@
+# Python caches
 __pycache__/
-*.pyc
-*.pyo
-*.egg-info/
+*.py[cod]
+*$py.class
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# Work / state directories (not committed)
-.omc/
-research/_notes_*.md
+# Virtual environments
+.venv/
+venv/
+env/
 
-# Local artifact outputs
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Security framework runtime artifacts
 artifacts/
-/tmp/bench_*/
+security_runs/
+*.jsonl
+*.log
 
-# IDE / OS
-.vscode/
-.idea/
+# OS/editor noise
 .DS_Store
-bench/smoke_results.json
+.idea/
+.vscode/

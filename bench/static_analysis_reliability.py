@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -29,25 +30,9 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 
-from security_framework.config import SecurityFrameworkConfig  # noqa: E402
 from security_framework.analysis.static_analyzer import analyze_static  # noqa: E402
 
 BENCH = Path("/home/user/agent-mds/eval/benchmarks")
-
-
-def _cfg(semgrep_timeout: int = 60) -> SecurityFrameworkConfig:
-    # 60s default: packed/obfuscated payloads (the only cases that hit the old
-    # 120s ceiling) are already caught instantly by the local obfuscation
-    # heuristic, and semgrep cannot usefully analyze a packed blob anyway. A
-    # slow-but-benign package that exceeds 60s degrades to success + timeout
-    # finding (MEDIUM) → still a correct TN. So 60s halves wall-clock without
-    # changing any outcome.
-    return SecurityFrameworkConfig(
-        semgrep_image="semgrep/semgrep:latest",
-        semgrep_rules="p/security-audit",
-        semgrep_timeout=semgrep_timeout,
-        workspace_copy_parent="/tmp/sa_reliability",
-    ).resolve_paths()
 
 
 def _datadog_scan_root(case_dir: Path) -> Path:
@@ -98,7 +83,11 @@ def main(argv=None) -> int:
                         help="per-case semgrep timeout (s); packed cases caught by obf heuristic")
     parser.add_argument("--out", default="/tmp/static_analysis_reliability.json")
     args = parser.parse_args(argv)
-    cfg = _cfg(args.semgrep_timeout)
+    # analyze_static now builds its config from the environment (the safeguard
+    # call signature is (action, context, targets, classification, asset_kind);
+    # there is no per-call config arg). Surface the harness's tunable timeout via
+    # the env var that SecurityFrameworkConfig.from_env() reads.
+    os.environ["SEMGREP_TIMEOUT"] = str(args.semgrep_timeout)
     cap = args.cap or None
 
     panels = (
@@ -124,7 +113,7 @@ def main(argv=None) -> int:
         context = {"cwd": case["cwd"], "task": "static test"}
         t0 = time.monotonic()
         try:
-            r = analyze_static(action, context, targets, classification, config=cfg)
+            r = analyze_static(action, context, targets, classification)
         except Exception as exc:
             r = {"status": f"ERROR:{type(exc).__name__}", "findings": []}
         elapsed = time.monotonic() - t0

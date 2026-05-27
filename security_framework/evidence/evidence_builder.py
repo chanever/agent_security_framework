@@ -82,7 +82,7 @@ def _external_content(command: str, workspace: str) -> dict:
         "source": ", ".join(linked_resources) if linked_resources else "workspace",
         "trust_level": "unknown" if excerpts or linked_resources else "not_applicable",
         "content_summary": "README or remote content referenced by command." if excerpts or linked_resources else "",
-        "raw_content_excerpt": combined[:12000],
+        "raw_content_excerpt": combined[:2000],
         "extracted_instructions": [],
         "extracted_suspicious_instructions": suspicious,
         "suspicious_code_patterns": suspicious,
@@ -171,8 +171,6 @@ def build_evidence_package(
         "external_interaction_analysis": external_analysis,
         "shadow_agent_execution": {
             "execution_status": sandbox.get("execution_status", "not_run"),
-            "trace_method": sandbox.get("trace_method", "strace"),
-            "trace_method_fallback": sandbox.get("trace_method_fallback"),
             "trajectory": [
                 {
                     "command": command,
@@ -192,8 +190,6 @@ def build_evidence_package(
             "network_activity": trace.get("network_activity", []),
             "package_install_events": ["package_install"] if "package_install" in classification.get("reasons", []) else [],
             "lsm_events": trace.get("lsm_events", []),
-            "formatted_events": trace.get("formatted_events", []),
-            "process_tree": trace.get("process_tree", {}),
         },
         "allowed_scope": {
             "read_allowed": ["/workspace/**"],

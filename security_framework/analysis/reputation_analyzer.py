@@ -150,6 +150,7 @@ def analyze_reputation(
     context: dict,
     targets: list[dict],
     classification: dict,
+    asset_kind: dict | None = None,
     *,
     timeout: int = DEFAULT_TIMEOUT_S,
 ) -> dict:
@@ -160,6 +161,7 @@ def analyze_reputation(
     Scorecard, skill → manifest heuristic). Signals are concatenated and
     summary aggregates per-type counts.
     """
+    del asset_kind  # accepted for safeguard call-signature parity; not used here
     if not classification.get("external_env") or not targets:
         return skipped_result()
 

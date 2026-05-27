@@ -187,7 +187,7 @@ def analyze_static(
     context: dict,
     targets: list[dict],
     classification: dict,
-    config: SecurityFrameworkConfig | None = None,
+    asset_kind: dict | None = None,
 ) -> dict:
     """Run semgrep against the agent's workspace/local code targets.
 
@@ -209,7 +209,8 @@ def analyze_static(
     if not has_code_target and not cwd_has_files:
         return skipped_result("No code-bearing targets and workspace is empty.")
 
-    cfg = (config or SecurityFrameworkConfig.from_env()).resolve_paths()
+    del asset_kind  # accepted for safeguard call-signature parity; not used here
+    cfg = SecurityFrameworkConfig.from_env().resolve_paths()
     scan_root = _resolve_scan_root(action, context or {}, targets or [])
     if scan_root is None:
         return skipped_result("Could not resolve a scan root for semgrep.")
