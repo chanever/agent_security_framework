@@ -32,8 +32,24 @@ import re
 from pathlib import Path
 
 from security_framework.evidence.evidence_builder import _safe_excerpt, extract_suspicious_instructions
+from security_framework.evidence.policy import WEAK_INSTRUCTION_PHRASES
 
 from . import pypi_analyzer
+
+
+def _cross_file_tier(matched: list[str]) -> tuple[str, str, list[str], list[str]]:
+    """Tier a referenced file's phrase matches.
+
+    A lone generic phrase (e.g. "send to" in a benign agent-creation doc) is
+    weak evidence → MEDIUM. A strong marker, or >=2 distinct weak phrases
+    co-occurring (the credential-exfil combo), is a real cross-file split
+    attack → HIGH.
+    """
+    strong = [p for p in matched if p not in WEAK_INSTRUCTION_PHRASES]
+    weak = [p for p in matched if p in WEAK_INSTRUCTION_PHRASES]
+    if strong or len(set(weak)) >= 2:
+        return "HIGH", "chanever-skill-cross-file-split", strong, weak
+    return "MEDIUM", "chanever-skill-cross-file-mention", strong, weak
 
 
 # capture leading "key: value" lines from a YAML frontmatter block.
@@ -121,15 +137,22 @@ def analyze(node: dict, cfg) -> dict:
                 "referenced_from": surface,
             })
             if ref_matched:
+                severity, rule_id, strong, weak = _cross_file_tier(ref_matched)
+                if severity == "HIGH":
+                    why = (f"strong marker(s) {strong!r}" if strong
+                           else f"{len(set(weak))} co-occurring sensitive terms {sorted(set(weak))!r}")
+                    detail = f"— possible cross-file split attack ({why})"
+                else:
+                    detail = "— weak signal (single generic term in referenced file)"
                 for phrase in ref_matched:
                     findings.append({
-                        "rule_id": "chanever-skill-cross-file-split",
-                        "severity": "HIGH",
+                        "rule_id": rule_id,
+                        "severity": severity,
                         "path": ref_path,
                         "line": 0,
                         "message": (
                             f"File {ref_path!r} referenced by {surface!r} contains suspicious "
-                            f"phrase {phrase!r} — possible cross-file split attack"
+                            f"phrase {phrase!r} {detail}"
                         ),
                         "source": "chanever-skill",
                     })

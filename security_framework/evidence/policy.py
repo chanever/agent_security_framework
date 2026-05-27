@@ -143,6 +143,23 @@ SUSPICIOUS_INSTRUCTION_PHRASES = [
     "delete the original file",
 ]
 
+# Phrases generic enough to occur in benign skill/package docs — a tutorial that
+# says "store your API key in .env" or "send to the channel". On their own these
+# are weak evidence. The skill cross-file rule only escalates to HIGH when a
+# strong marker is present OR >=2 distinct weak phrases co-occur (the
+# credential-exfil combo, e.g. ".env" + "upload"). A lone weak phrase in a
+# referenced file is reported at MEDIUM, not HIGH, so a benign doc mentioning
+# one sensitive word is not treated as a split attack. Everything NOT in this
+# set is a strong, high-confidence marker (prompt-injection, RCE, specific key
+# artifacts, destructive ops).
+WEAK_INSTRUCTION_PHRASES = frozenset({
+    "private key", "private.key", ".pem", ".env", "dotenv",
+    "credentials", "api key", "api_key", "apikey",
+    "bearer token", "access token", "auth token",
+    "secret", "password", "token", "upload",
+    "send to", "post to", "base64",
+})
+
 
 def is_sensitive_path(path: str) -> bool:
     normalized = path.replace("\\", "/")
