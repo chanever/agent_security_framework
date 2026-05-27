@@ -6,20 +6,30 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from security_framework.analysis.reputation_analyzer import analyze_reputation
-from security_framework.analysis.static_analyzer import analyze_static
-from security_framework.classification.asset_kind_classifier import classify_asset_kind, skipped_result as skipped_asset_kind
-from security_framework.classification.external_target_extractor import extract_external_targets
-from security_framework.classification.trigger import classify_command
+from security_framework import glm_verifier
 from security_framework.config import SecurityFrameworkConfig
 from security_framework.evidence.evidence_builder import build_evidence_package, write_evidence_package
+from security_framework.classification.external_target_extractor import extract_external_targets
+from security_framework.analysis.reputation_analyzer import analyze_reputation
 from security_framework.sandbox.sandbox_runner import run_in_sandbox
-from security_framework.sandbox.trace_parser import parse_trace
-from security_framework.verifier import verify
+from security_framework.analysis.static_analyzer import analyze_static
+from security_framework.sandbox.trace_parser import parse_trace_auto
+from security_framework.classification.trigger import classify_command
+
+
+def _route_verifier(evidence_package: dict, mode: str) -> dict:
+    """Dispatch verification to the configured backend (``cfg.verifier_mode``).
+
+    Upstream removed the original ``mock_verifier`` module; any non-``glm``
+    mode now routes to ``glm_verifier`` whose internal HOLD fallback
+    preserves the safeguard's conservative-block contract when the LLM CLI
+    is missing.
+    """
+    return glm_verifier.verify(evidence_package)
 
 
 class ShadowSandboxSafeguard:
-    """Inspect command actions with trigger, shadow execution, evidence, and verification."""
+    """Inspect command actions with trigger, shadow execution, evidence, and mock verification."""
 
     def __init__(self, config: SecurityFrameworkConfig | None = None) -> None:
         self.config = (config or SecurityFrameworkConfig.from_env()).resolve_paths()
@@ -38,37 +48,41 @@ class ShadowSandboxSafeguard:
         classification = classify_command(command, context)
 
         if classification.get("hard_block"):
-            run_dir = self._run_dir(context)
-            external_analysis = self._external_interaction_analysis(action, context, classification)
-            evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package, self.config)
-            evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
-            self._write_json(run_dir / "verifier_result.json", verifier_result)
-            return self._block(
-                action,
-                "Hard-blocked before sandbox execution.",
-                classification=classification,
-                context=context,
-                verifier_result=verifier_result,
-                evidence_path=evidence_path,
-                run_dir=run_dir,
-            )
+            return self._block(action, "Hard-blocked before sandbox execution.", classification=classification, context=context)
 
         if not classification.get("external_env"):
+            if not self.config.strict_evidence_for_safe_commands:
+                return {
+                    "decision": "allow",
+                    "action": action,
+                    "reason": "Allowed local command without external-environment interaction.",
+                    "classification": classification,
+                    "verifier_result": None,
+                }
             run_dir = self._run_dir(context)
             external_analysis = self._external_interaction_analysis(action, context, classification)
             evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package, self.config)
+            verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
             evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
             self._write_json(run_dir / "verifier_result.json", verifier_result)
-            return self._map_decision(verifier_result, action, evidence_path, run_dir, classification, "Local command verified.")
+            if verifier_result.get("decision") == "ALLOW":
+                return {
+                    "decision": "allow",
+                    "action": action,
+                    "reason": verifier_result.get("reason", "Allowed by trigger and verifier."),
+                    "classification": classification,
+                    "verifier_result": verifier_result,
+                    "evidence_package_path": evidence_path,
+                    "artifact_dir": str(run_dir),
+                }
+            return self._map_decision(verifier_result, action, evidence_path, run_dir, classification, "Local command held by verifier.")
 
         run_dir = self._run_dir(context)
         external_analysis = self._external_interaction_analysis(action, context, classification)
 
         if not classification.get("needs_shadow_execution"):
             evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package, self.config)
+            verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
             evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
             self._write_json(run_dir / "verifier_result.json", verifier_result)
             return self._map_decision(verifier_result, action, evidence_path, run_dir, classification)
@@ -77,9 +91,12 @@ class ShadowSandboxSafeguard:
             return self._block(action, "Shadow sandbox is required but disabled.", classification=classification, context=context)
 
         sandbox_result = run_in_sandbox(command, context.get("cwd", "."), run_dir, self.config)
-        semantic_trace = parse_trace(sandbox_result.get("trace_raw", ""))
+        semantic_trace = parse_trace_auto(
+            sandbox_result.get("trace_raw", ""),
+            trace_method=sandbox_result.get("trace_method", "strace"),
+        )
         evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, sandbox_result, semantic_trace, external_analysis)
-        verifier_result = verify(evidence_package, self.config)
+        verifier_result = _route_verifier(evidence_package, self.config.verifier_mode)
         evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
         self._write_json(run_dir / "sandbox_result.json", self._redact_docker_command(sandbox_result))
         self._write_json(run_dir / "semantic_trace.json", semantic_trace)
@@ -87,27 +104,19 @@ class ShadowSandboxSafeguard:
 
         return self._map_decision(verifier_result, action, evidence_path, run_dir, classification)
 
-    def _external_interaction_analysis(self, action: dict, context: dict, classification: dict) -> dict:
+    @staticmethod
+    def _external_interaction_analysis(action: dict, context: dict, classification: dict) -> dict:
         targets = []
-        asset_kind = skipped_asset_kind()
         static_result = {"status": "skipped", "findings": [], "summary": "No analysis was requested."}
         reputation_result = {"status": "skipped", "signals": [], "summary": "No analysis was requested."}
 
         if classification.get("external_env"):
             targets = classification.get("targets") or extract_external_targets(action, context, classification)
-            asset_kind = classify_asset_kind(action, context, classification, targets, self.config)
-            if asset_kind.get("status") == "completed":
-                if self.config.static_analysis_enabled:
-                    static_result = analyze_static(action, context, targets, classification, asset_kind)
-                if self.config.reputation_analysis_enabled:
-                    reputation_result = analyze_reputation(action, context, targets, classification, asset_kind)
-            else:
-                static_result = {"status": "skipped", "findings": [], "summary": "Asset kind was not confidently classified."}
-                reputation_result = {"status": "skipped", "signals": [], "summary": "Asset kind was not confidently classified."}
+            static_result = analyze_static(action, context, targets, classification)
+            reputation_result = analyze_reputation(action, context, targets, classification)
 
         return {
             "targets": targets,
-            "asset_kind": asset_kind,
             "static_analysis": static_result,
             "reputation_analysis": reputation_result,
         }
@@ -131,28 +140,14 @@ class ShadowSandboxSafeguard:
             return {"decision": "block", "action": self._stop_action(reason), "reason": f"Sandbox-only recommended: {reason}", **common}
         return {"decision": "block", "action": self._stop_action(reason), "reason": reason, **common}
 
-    def _block(
-        self,
-        action: dict,
-        reason: str,
-        classification: dict | None = None,
-        context: dict | None = None,
-        verifier_result: dict | None = None,
-        evidence_path: str | None = None,
-        run_dir: Path | None = None,
-    ) -> dict:
-        result = {
+    def _block(self, action: dict, reason: str, classification: dict | None = None, context: dict | None = None) -> dict:
+        return {
             "decision": "block",
             "action": self._stop_action(reason),
             "reason": reason,
             "classification": classification or classify_command(action.get("command", ""), context),
-            "verifier_result": verifier_result,
+            "verifier_result": None,
         }
-        if evidence_path:
-            result["evidence_package_path"] = evidence_path
-        if run_dir:
-            result["artifact_dir"] = str(run_dir)
-        return result
 
     def _run_dir(self, context: dict) -> Path:
         run_id = context.get("run_id") or "run"
