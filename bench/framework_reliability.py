@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import inspect as _i
 import json
+import os
 import re
 import sys
 import time
@@ -51,7 +52,34 @@ sys.path.insert(0, str(REPO))
 from security_framework.config import SecurityFrameworkConfig                       # noqa: E402
 from security_framework.safeguard.shadow_sandbox_safeguard import ShadowSandboxSafeguard  # noqa: E402
 
-BENCH = Path("/home/user/agent-mds/eval/benchmarks")
+# Two-tier corpus layout under ``bench/`` so the bench is reproducible on a
+# fresh clone:
+#   * ``bench/fixtures/`` — handcrafted cases shipped with the repo (small,
+#     version-controlled): malicious-repos, skill-inject, toolhijacker,
+#     benign-tools. These are OUR scenarios and don't live on any registry.
+#   * ``bench/corpora/``  — downloadable cases populated by
+#     ``bench/setup_corpora.sh`` (large, ``.gitignore``-d): datadog-pypi/npm
+#     adversarial mirror + benign-pypi/npm/repos/skills from public sources.
+#
+# Override the search path with ``BENCH_ROOT`` env var (colon-separated) or
+# the ``--bench-root`` CLI flag (repeatable) — useful when running against an
+# external corpus mirror (e.g. an existing agent-mds eval/benchmarks tree).
+DEFAULT_BENCH_ROOTS = [HERE / "fixtures", HERE / "corpora"]
+_env_root = os.environ.get("BENCH_ROOT", "").strip()
+BENCH_ROOTS: list[Path] = (
+    [Path(p) for p in _env_root.split(":") if p] if _env_root
+    else list(DEFAULT_BENCH_ROOTS)
+)
+
+
+def _family_root(family: str) -> Path | None:
+    """Return the first BENCH_ROOTS path that contains ``<root>/<family>/``,
+    or None if none does."""
+    for root in BENCH_ROOTS:
+        p = root / family
+        if p.is_dir():
+            return p
+    return None
 
 
 # ───────────── per-family agent-scenario templates ─────────────
@@ -147,8 +175,8 @@ def _panel(family: str, label, limit: int | None, cmd_template: str,
     so the command the safeguard sees mirrors what an agent would actually
     emit (``pip install attrs``, not ``pip install pkg``).
     """
-    root = BENCH / family
-    if not root.is_dir():
+    root = _family_root(family)
+    if root is None:
         return []
     cases = sorted([p for p in root.iterdir() if p.is_dir()])
     if limit:
@@ -405,6 +433,13 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="/tmp/framework_reliability.json")
     parser.add_argument("--families", default="",
                         help="comma-separated subset, e.g. 'datadog-pypi,benign-pypi'")
+    parser.add_argument("--bench-root", action="append", default=[],
+                        help="corpus search root (repeatable). Each given path "
+                             "replaces the default search list "
+                             "(``bench/fixtures`` + ``bench/corpora``). The "
+                             "first root that contains ``<root>/<family>/`` "
+                             "wins per family. Also settable via BENCH_ROOT "
+                             "env var (colon-separated).")
     parser.add_argument("--chart-out", default="",
                         help="output PNG prefix; two files written: "
                              "<prefix>_dsr.png (OFF vs ON DSR) and "
@@ -414,6 +449,9 @@ def main(argv=None) -> int:
     parser.add_argument("--no-chart", action="store_true",
                         help="skip chart rendering.")
     args = parser.parse_args(argv)
+    if args.bench_root:
+        global BENCH_ROOTS
+        BENCH_ROOTS = [Path(p) for p in args.bench_root]
     cap = args.cap or None
 
     cfg = SecurityFrameworkConfig.from_env()
