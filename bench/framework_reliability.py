@@ -157,6 +157,203 @@ def _read_stages(ep_path: str | None) -> dict:
     }
 
 
+# ───────────────────────── metrics + chart rendering ────────────────────────
+
+# Maps each bench family to the external source type the safeguard
+# classifies (pypi/npm/repo/skill). The chart aggregates confusion by this
+# axis so per-source-type DSR and benign/malicious discrimination are visible.
+SOURCE_TYPE_OF_FAMILY = {
+    "datadog-pypi":          "pypi",
+    "benign-pypi":           "pypi",
+    "benign-pypi-extended":  "pypi",
+    "datadog-npm":           "npm",
+    "benign-npm-extended":   "npm",
+    "malicious-repos":       "repo",
+    "benign-repo-extended":  "repo",
+    "skill-inject":          "skill",
+    "toolhijacker":          "skill",
+    "benign-skills":         "skill",
+    "benign-tools":          "skill",
+    "benign-skill-extended": "skill",
+}
+SOURCE_TYPE_ORDER = ["pypi", "npm", "repo", "skill"]
+
+
+def _compute_metrics(rows: list[dict]) -> dict:
+    """Per-row outcomes → DSR / specificity / accuracy / precision / F1.
+
+    DSR (Defense Success Rate) = recall on malicious = TP / (TP + FN). It is
+    the headline metric: the fraction of malicious external sources the
+    framework actually stopped from running.
+    Specificity = TN / (TN + FP), the fraction of benign sources correctly
+    allowed (proves the framework is not just a uniform blocker).
+    """
+    confusion: Counter = Counter(r["outcome"] for r in rows)
+    tp = confusion.get("TP", 0)
+    tn = confusion.get("TN", 0)
+    fp = confusion.get("FP", 0)
+    fn = confusion.get("FN", 0)
+    err = confusion.get("ERR", 0)
+    mal = tp + fn
+    ben = tn + fp
+    total = mal + ben
+    return {
+        "n": total, "errors": err, "TP": tp, "TN": tn, "FP": fp, "FN": fn,
+        "dsr":         tp / mal if mal else 0.0,
+        "specificity": tn / ben if ben else 0.0,
+        "accuracy":    (tp + tn) / total if total else 0.0,
+        "precision":   tp / (tp + fp) if (tp + fp) else 0.0,
+        "f1":          (2 * tp) / (2 * tp + fp + fn) if (2 * tp + fp + fn) else 0.0,
+    }
+
+
+def _per_source_type_metrics(rows: list[dict]) -> dict[str, dict]:
+    """Group rows by external source type (pypi/npm/repo/skill) and compute
+    confusion + DSR/specificity for each. Skips types with no rows."""
+    by_type: dict[str, list[dict]] = {}
+    for r in rows:
+        st = SOURCE_TYPE_OF_FAMILY.get(r.get("family"))
+        if st:
+            by_type.setdefault(st, []).append(r)
+    return {st: _compute_metrics(subset) for st, subset in by_type.items()}
+
+
+def _baseline_metrics_from_labels(rows: list[dict]) -> dict:
+    """Baseline = no framework — every install just runs. By construction
+    every malicious case becomes FN (DSR=0) and every benign case becomes TN
+    (specificity=1). No re-run needed; derived from corpus labels alone."""
+    mal = sum(1 for r in rows if r["label"] == "malicious")
+    ben = sum(1 for r in rows if r["label"] == "benign")
+    total = mal + ben
+    return {
+        "n": total, "errors": 0, "TP": 0, "TN": ben, "FP": 0, "FN": mal,
+        "dsr": 0.0,
+        "specificity": 1.0 if ben else 0.0,
+        "accuracy":    ben / total if total else 0.0,
+        "precision":   0.0,
+        "f1":          0.0,
+    }
+
+
+def _render_charts(framework: dict, baseline: dict,
+                   per_family: dict[str, Counter],
+                   per_source_type: dict[str, dict],
+                   out_dsr: Path, out_discrim: Path) -> None:
+    """Two PNGs, one question per chart, broken down by external source type
+    (pypi / npm / repo / skill):
+
+    * ``out_dsr``     — DSR per source type, framework OFF vs ON, plus overall.
+      Answers "does the framework actually defend?" Baseline DSR is 0% by
+      construction (no framework = no block = every malicious install runs).
+    * ``out_discrim`` — discrimination on the ON-only run, per source type.
+      Answers "does the framework distinguish benign from harmful, instead of
+      blanket-blocking?" Two panels: per-source-type recall + specificity, and
+      per-family confusion breakdown.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    types = [t for t in SOURCE_TYPE_ORDER if t in per_source_type]
+
+    # ─────────── DSR chart (OFF vs ON, per source type + overall) ───────────
+    # Only types with malicious cases produce a meaningful DSR.
+    dsr_types = [t for t in types if (per_source_type[t]["TP"] + per_source_type[t]["FN"]) > 0]
+    groups = dsr_types + ["overall"]
+    fw_dsr = [per_source_type[t]["dsr"] * 100 for t in dsr_types] + [framework["dsr"] * 100]
+    bl_dsr = [0.0] * len(groups)  # baseline = no framework → DSR = 0 everywhere
+    n_per = [per_source_type[t]["TP"] + per_source_type[t]["FN"] for t in dsr_types]
+    n_per.append(framework["TP"] + framework["FN"])
+    labels = [f"{t}\n(n={n})" for t, n in zip(groups, n_per)]
+
+    fig, ax = plt.subplots(figsize=(max(8, 1.6 * len(groups) + 2), 5.2))
+    x = list(range(len(groups)))
+    w = 0.35
+    ax.bar([i - w / 2 for i in x], bl_dsr, w,
+           label="Baseline (no framework)", color="#cccccc")
+    ax.bar([i + w / 2 for i in x], fw_dsr, w,
+           label="Framework ON", color="#3b82f6")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, 110)
+    ax.set_ylabel("Defense Success Rate (%)")
+    ax.set_title("DSR on malicious external sources — per source type")
+    ax.legend(loc="upper left", fontsize=9)
+    for i, v in enumerate(fw_dsr):
+        ax.text(i + w / 2, v + 2, f"{v:.1f}%", ha="center", fontsize=9)
+        ax.text(i - w / 2, 2, "0%", ha="center", fontsize=9, color="#444")
+    plt.tight_layout()
+    plt.savefig(out_dsr, dpi=120)
+    plt.close(fig)
+
+    # ─── Discrimination chart (ON only) ───
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
+
+    # Panel A: per-source-type recall (malicious blocked) + specificity (benign allowed)
+    x = list(range(len(types)))
+    w = 0.38
+    recall_vals, spec_vals = [], []
+    recall_xs, spec_xs = [], []
+    for i, t in enumerate(types):
+        m = per_source_type[t]
+        nm = m["TP"] + m["FN"]
+        nb = m["TN"] + m["FP"]
+        if nm > 0:
+            recall_vals.append(m["dsr"] * 100)
+            recall_xs.append(i - w / 2)
+        if nb > 0:
+            spec_vals.append(m["specificity"] * 100)
+            spec_xs.append(i + w / 2)
+    axes[0].bar(recall_xs, recall_vals, w,
+                label="malicious blocked (recall)", color="#22c55e")
+    axes[0].bar(spec_xs, spec_vals, w,
+                label="benign allowed (specificity)", color="#3b82f6")
+    for xv, v in zip(recall_xs, recall_vals):
+        axes[0].text(xv, v + 2, f"{v:.0f}%", ha="center", fontsize=9)
+    for xv, v in zip(spec_xs, spec_vals):
+        axes[0].text(xv, v + 2, f"{v:.0f}%", ha="center", fontsize=9)
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels([
+        f"{t}\n(mal={per_source_type[t]['TP'] + per_source_type[t]['FN']}, "
+        f"ben={per_source_type[t]['TN'] + per_source_type[t]['FP']})"
+        for t in types
+    ], fontsize=9)
+    axes[0].set_ylim(0, 110)
+    axes[0].set_ylabel("%")
+    axes[0].set_title(
+        "Discrimination per source type "
+        f"(overall acc={framework['accuracy'] * 100:.1f}%, "
+        f"F1={framework['f1'] * 100:.1f}%)")
+    axes[0].legend(loc="lower left", fontsize=8)
+
+    # Panel B: per-family confusion stacked bars (granular view)
+    fams = sorted(per_family.keys())
+    tp_a  = [per_family[f].get("TP",  0) for f in fams]
+    tn_a  = [per_family[f].get("TN",  0) for f in fams]
+    fp_a  = [per_family[f].get("FP",  0) for f in fams]
+    fn_a  = [per_family[f].get("FN",  0) for f in fams]
+    err_a = [per_family[f].get("ERR", 0) for f in fams]
+    xs = list(range(len(fams)))
+    axes[1].bar(xs, tp_a, label="TP", color="#22c55e")
+    bottom = list(tp_a)
+    axes[1].bar(xs, tn_a, bottom=bottom, label="TN", color="#3b82f6")
+    bottom = [a + b for a, b in zip(bottom, tn_a)]
+    axes[1].bar(xs, fp_a, bottom=bottom, label="FP", color="#ef4444")
+    bottom = [a + b for a, b in zip(bottom, fp_a)]
+    axes[1].bar(xs, fn_a, bottom=bottom, label="FN", color="#f97316")
+    bottom = [a + b for a, b in zip(bottom, fn_a)]
+    axes[1].bar(xs, err_a, bottom=bottom, label="ERR", color="#9ca3af")
+    axes[1].set_xticks(xs)
+    axes[1].set_xticklabels(fams, rotation=30, ha="right", fontsize=9)
+    axes[1].set_ylabel("cases")
+    axes[1].set_title("Per-family confusion")
+    axes[1].legend(loc="upper right", fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(out_discrim, dpi=120)
+    plt.close(fig)
+
+
 # ────────────────────────────────── main ─────────────────────────────────────
 
 
@@ -181,6 +378,14 @@ def main(argv=None) -> int:
                         help="external dir with extra benign-skill cases (skill dirs "
                              "containing SKILL.md) → benign-skill-extended (cmd: "
                              "'cat SKILL.md').")
+    parser.add_argument("--chart-out", default="",
+                        help="output PNG prefix; two files written: "
+                             "<prefix>_dsr.png (OFF vs ON DSR) and "
+                             "<prefix>_discrim.png (ON-only benign/malicious "
+                             "discrimination + per-family confusion). "
+                             "Default: derived from --out.")
+    parser.add_argument("--no-chart", action="store_true",
+                        help="skip chart rendering.")
     args = parser.parse_args(argv)
     cap = args.cap or None
 
@@ -297,14 +502,49 @@ def main(argv=None) -> int:
     print(f"\n=== TOTAL ===\n  {dict(confusion_total)}  (n={sum(confusion_total.values())}, "
           f"elapsed={elapsed_total / 60:.1f} min)")
 
+    # ── metrics: framework ON (measured) vs OFF (analytical baseline) ──
+    framework = _compute_metrics(rows)
+    baseline = _baseline_metrics_from_labels(rows)
+    per_source_type = _per_source_type_metrics(rows)
+    print("\n=== Metrics: Framework OFF (baseline) vs ON ===")
+    print(f"  {'metric':14s} {'OFF':>8s} {'ON':>8s}")
+    for k, lab in [("dsr", "DSR (recall)"), ("specificity", "specificity"),
+                   ("accuracy", "accuracy"), ("precision", "precision"), ("f1", "F1")]:
+        print(f"  {lab:14s} {baseline[k] * 100:>7.1f}% {framework[k] * 100:>7.1f}%")
+    if per_source_type:
+        print("\n=== Per source type (framework ON) ===")
+        print(f"  {'type':6s} {'n_mal':>6s} {'n_ben':>6s} {'DSR':>7s} {'spec':>7s} {'acc':>7s}")
+        for t in SOURCE_TYPE_ORDER:
+            if t not in per_source_type:
+                continue
+            m = per_source_type[t]
+            print(f"  {t:6s} {m['TP'] + m['FN']:>6d} {m['TN'] + m['FP']:>6d} "
+                  f"{m['dsr'] * 100:>6.1f}% {m['specificity'] * 100:>6.1f}% "
+                  f"{m['accuracy'] * 100:>6.1f}%")
+
     out = Path(args.out)
     out.write_text(json.dumps({
         "confusion_total": dict(confusion_total),
         "confusion_per_family": {k: dict(v) for k, v in confusion_per_family.items()},
+        "metrics_framework_on": framework,
+        "metrics_baseline_off": baseline,
+        "metrics_per_source_type": per_source_type,
         "elapsed_min": round(elapsed_total / 60, 2),
         "rows": rows,
     }, indent=2, default=str))
     print(f"Details → {out}")
+
+    if not args.no_chart:
+        prefix = Path(args.chart_out) if args.chart_out else out.with_suffix("")
+        out_dsr = prefix.with_name(prefix.name + "_dsr.png")
+        out_discrim = prefix.with_name(prefix.name + "_discrim.png")
+        try:
+            _render_charts(framework, baseline, confusion_per_family,
+                           per_source_type, out_dsr, out_discrim)
+            print(f"DSR chart           → {out_dsr}")
+            print(f"Discrimination chart → {out_discrim}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  chart render failed: {type(exc).__name__}: {exc}")
     return 0
 
 
