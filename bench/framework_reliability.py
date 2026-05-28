@@ -136,6 +136,10 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="/tmp/framework_reliability.json")
     parser.add_argument("--families", default="",
                         help="comma-separated subset, e.g. 'datadog-pypi,benign-pypi'")
+    parser.add_argument("--extra-benign-root", default="",
+                        help="external dir with extra benign-pypi cases mirroring "
+                             "<case>/artifact/<pkg-ver>/ layout (e.g. /tmp/benign_extended). "
+                             "Each top-level subdir becomes a benign-pypi-extended case.")
     args = parser.parse_args(argv)
     cap = args.cap or None
 
@@ -163,6 +167,23 @@ def main(argv=None) -> int:
         + _panel("benign-skills", "benign", cap, "cat SKILL.md")
         + _panel("benign-tools",  "benign", cap, "cat SKILL.md")
     )
+    # Extra benign-pypi cases from an external corpus root (e.g. one populated
+    # by ``/tmp/setup_benign_extended.sh``). Each ``<root>/<pkg>/`` directory is
+    # treated as a benign-pypi-extended case, same flow as benign-pypi.
+    if args.extra_benign_root:
+        extra_root = Path(args.extra_benign_root)
+        if extra_root.is_dir():
+            extra_cases = sorted([p for p in extra_root.iterdir() if p.is_dir()])
+            if cap:
+                extra_cases = extra_cases[:cap]
+            for case_dir in extra_cases:
+                panels.append({
+                    "family": "benign-pypi-extended",
+                    "label": "benign",
+                    "case": case_dir.name,
+                    "cwd": str(case_dir),
+                    "command": "pip install pkg",
+                })
     if args.families:
         keep = {f.strip() for f in args.families.split(",") if f.strip()}
         panels = [p for p in panels if p["family"] in keep]
