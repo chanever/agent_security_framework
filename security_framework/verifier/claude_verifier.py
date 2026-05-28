@@ -32,6 +32,7 @@ def _fallback(reason: str, evidence: list[str] | None = None) -> dict:
         "violated_properties": ["verifier_unavailable"],
         "evidence": evidence or [],
         "reason": reason,
+        "reason_source": "framework_fallback",
         "recommended_action": "Hold this command until verifier uncertainty is resolved.",
     }
 
@@ -109,6 +110,7 @@ def normalize_verifier_result(payload: dict[str, Any]) -> dict:
         "violated_properties": _list_value(payload.get("violated_properties")),
         "evidence": _list_value(payload.get("evidence")),
         "reason": str(payload.get("reason", "Claude verifier returned a decision.")),
+        "reason_source": str(payload.get("reason_source", "claude_verifier")),
         "recommended_action": str(payload.get("recommended_action", "")),
     }
 

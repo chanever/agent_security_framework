@@ -64,7 +64,7 @@ TRUSTED_AUTHORS = {
 
 # Publishers identified as malicious in public audits. Curated list with
 # cited sources lives in ``reputation._known_bad.KNOWN_BAD_SKILL_AUTHORS``.
-from reputation._known_bad import KNOWN_BAD_SKILL_AUTHORS as KNOWN_BAD_AUTHORS
+from ._known_bad import KNOWN_BAD_SKILL_AUTHORS as KNOWN_BAD_AUTHORS
 
 
 # ─────────────────────────── distribution-source classifier ───────────────────

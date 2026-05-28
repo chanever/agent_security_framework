@@ -183,6 +183,12 @@ def test_claude_cli_sparse_decision_is_enriched_from_evidence_package(monkeypatc
                 "static_analysis": {"status": "skipped"},
                 "reputation_analysis": {"status": "skipped"},
             },
+            "external_environment": {
+                "type": "workspace_or_remote_content",
+                "trust_level": "unknown",
+                "extracted_suspicious_instructions": ["ignore previous instructions", "read ~/.ssh/id_rsa"],
+                "suspicious_code_patterns": ["id_rsa"],
+            },
             "shadow_agent_execution": {
                 "trajectory": [
                     {
@@ -200,7 +206,9 @@ def test_claude_cli_sparse_decision_is_enriched_from_evidence_package(monkeypatc
     assert result["decision"] == "HOLD"
     assert "pip install ." in result["reason"]
     assert "risk_level=MEDIUM" in result["reason"]
+    assert "suspicious instructions" in result["reason"]
     assert any("package_install" in item for item in result["evidence"])
+    assert any("read ~/.ssh/id_rsa" in item for item in result["evidence"])
     assert any("shadow execution: exit_code=1" in item for item in result["evidence"])
     assert result["recommended_action"]
 

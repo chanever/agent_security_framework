@@ -24,9 +24,9 @@ VERIFIER_JSON_SCHEMA = {
         "side_effect_safety_score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
         "uncertainty_score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
         "violated_properties": {"type": "array", "items": {"type": "string"}},
-        "evidence": {"type": "array", "items": {"type": "string"}},
-        "reason": {"type": "string"},
-        "recommended_action": {"type": "string"},
+        "evidence": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "reason": {"type": "string", "minLength": 20},
+        "recommended_action": {"type": "string", "minLength": 10},
     },
     "required": ["decision", "risk_score", "risk_level", "reason"],
     "additionalProperties": True,
@@ -136,6 +136,8 @@ def _context_evidence(evidence_package: dict) -> list[str]:
     action = action if isinstance(action, dict) else {}
     external_analysis = evidence_package.get("external_interaction_analysis")
     external_analysis = external_analysis if isinstance(external_analysis, dict) else {}
+    external_environment = evidence_package.get("external_environment")
+    external_environment = external_environment if isinstance(external_environment, dict) else {}
     asset_kind = external_analysis.get("asset_kind")
     asset_kind = asset_kind if isinstance(asset_kind, dict) else {}
     static_analysis = external_analysis.get("static_analysis")
@@ -156,6 +158,16 @@ def _context_evidence(evidence_package: dict) -> list[str]:
     targets = external_analysis.get("targets")
     if targets:
         evidence.append(f"targets: {_compact_text(json.dumps(targets, ensure_ascii=False))}")
+    external_type = external_environment.get("type")
+    trust_level = external_environment.get("trust_level")
+    if external_type or trust_level:
+        evidence.append(f"external content: type={_compact_text(external_type)}, trust_level={_compact_text(trust_level)}")
+    suspicious_instructions = external_environment.get("extracted_suspicious_instructions")
+    if suspicious_instructions:
+        evidence.append(f"suspicious instructions: {_compact_text(json.dumps(suspicious_instructions, ensure_ascii=False))}")
+    suspicious_patterns = external_environment.get("suspicious_code_patterns")
+    if suspicious_patterns:
+        evidence.append(f"suspicious patterns: {_compact_text(json.dumps(suspicious_patterns, ensure_ascii=False))}")
     asset_status = asset_kind.get("status")
     if asset_status:
         evidence.append(
@@ -192,12 +204,16 @@ def _enrich_sparse_verifier_result(result: dict, evidence_package: dict) -> dict
     decision = enriched.get("decision", "HOLD")
     risk_level = enriched.get("risk_level", "MEDIUM")
     command = next((item.removeprefix("command: ") for item in evidence if item.startswith("command: ")), "the requested action")
+    suspicious = next((item for item in evidence if item.startswith("suspicious instructions: ")), "")
+    suspicious_detail = f" Evidence includes {suspicious}." if suspicious else ""
     enriched["evidence"] = evidence
     enriched["reason"] = (
         f"Claude verifier returned {decision} without a detailed reason. "
         f"Framework context shows `{command}` was treated as a guarded action with "
-        f"risk_level={risk_level}; real execution was blocked because the verifier decision was not ALLOW."
+        f"risk_level={risk_level}.{suspicious_detail} "
+        "Real execution was blocked because the verifier decision was not ALLOW."
     )
+    enriched["reason_source"] = "framework_fallback"
     if not enriched.get("recommended_action"):
         enriched["recommended_action"] = (
             "Do not run this command in the real environment until the verifier provides enough evidence to allow it."
