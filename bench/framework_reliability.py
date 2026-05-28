@@ -106,7 +106,47 @@ def _label_by_prefix(name: str) -> str:
     return "malicious" if name.startswith("malicious") else "benign"
 
 
-def _panel(family: str, label, limit: int | None, cmd: str, scan_resolver=None) -> list[dict]:
+# Family-name prefixes that show up on case dirs (legacy naming). The real
+# external source name is the dir name with the prefix stripped — so
+# ``benign_pypi_attrs`` → ``attrs`` and ``datadog_npm_malicious_intent_0wneg``
+# → ``0wneg`` (or whatever metadata.package says, which we prefer).
+_CASE_PREFIX_STRIP = (
+    "datadog_pypi_malicious_intent_", "datadog_npm_malicious_intent_",
+    "benign_pypi_", "benign_npm_", "benign_repo_", "benign_skill_",
+)
+
+
+def _resolve_real_name(case_dir: Path) -> str:
+    """Return the real external-source name the agent would type into the
+    install command (e.g. ``attrs`` for ``pip install attrs``). Prefers the
+    DataDog/agent-mds metadata JSON when present, otherwise falls back to the
+    case dir name with the family prefix stripped.
+    """
+    for meta_path in (case_dir / "artifact" / "agent_mds_benchmark.json",
+                      case_dir / "agent_mds_benchmark.json"):
+        if meta_path.is_file():
+            try:
+                data = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                data = {}
+            for key in ("package", "name"):
+                val = data.get(key)
+                if isinstance(val, str) and val:
+                    return val
+    name = case_dir.name
+    for pfx in _CASE_PREFIX_STRIP:
+        if name.startswith(pfx):
+            return name[len(pfx):]
+    return name
+
+
+def _panel(family: str, label, limit: int | None, cmd_template: str,
+           scan_resolver=None) -> list[dict]:
+    """Build a per-family panel of cases. ``cmd_template`` may contain
+    ``{name}`` — substituted per case with the real external source name
+    so the command the safeguard sees mirrors what an agent would actually
+    emit (``pip install attrs``, not ``pip install pkg``).
+    """
     root = BENCH / family
     if not root.is_dir():
         return []
@@ -117,10 +157,13 @@ def _panel(family: str, label, limit: int | None, cmd: str, scan_resolver=None) 
     for case_dir in cases:
         scan_root = scan_resolver(case_dir) if scan_resolver else case_dir
         case_label = label(case_dir.name) if callable(label) else label
+        real_name = _resolve_real_name(case_dir)
+        cmd = cmd_template.format(name=real_name) if "{name}" in cmd_template else cmd_template
         out.append({
             "family": family,
             "label": case_label,
             "case": case_dir.name,
+            "name": real_name,
             "cwd": str(scan_root),
             "command": cmd,
         })
@@ -163,18 +206,16 @@ def _read_stages(ep_path: str | None) -> dict:
 # classifies (pypi/npm/repo/skill). The chart aggregates confusion by this
 # axis so per-source-type DSR and benign/malicious discrimination are visible.
 SOURCE_TYPE_OF_FAMILY = {
-    "datadog-pypi":          "pypi",
-    "benign-pypi":           "pypi",
-    "benign-pypi-extended":  "pypi",
-    "datadog-npm":           "npm",
-    "benign-npm-extended":   "npm",
-    "malicious-repos":       "repo",
-    "benign-repo-extended":  "repo",
-    "skill-inject":          "skill",
-    "toolhijacker":          "skill",
-    "benign-skills":         "skill",
-    "benign-tools":          "skill",
-    "benign-skill-extended": "skill",
+    "datadog-pypi":    "pypi",
+    "benign-pypi":     "pypi",
+    "datadog-npm":     "npm",
+    "benign-npm":      "npm",
+    "malicious-repos": "repo",
+    "benign-repos":    "repo",
+    "skill-inject":    "skill",
+    "toolhijacker":    "skill",
+    "benign-skills":   "skill",
+    "benign-tools":    "skill",
 }
 SOURCE_TYPE_ORDER = ["pypi", "npm", "repo", "skill"]
 
@@ -364,20 +405,6 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="/tmp/framework_reliability.json")
     parser.add_argument("--families", default="",
                         help="comma-separated subset, e.g. 'datadog-pypi,benign-pypi'")
-    parser.add_argument("--extra-benign-root", default="",
-                        help="external dir with extra benign-pypi cases mirroring "
-                             "<case>/artifact/<pkg-ver>/ layout. Each top-level subdir "
-                             "becomes a benign-pypi-extended case (cmd: 'pip install pkg').")
-    parser.add_argument("--extra-benign-npm-root", default="",
-                        help="external dir with extra benign-npm cases → "
-                             "benign-npm-extended (cmd: 'npm install pkg').")
-    parser.add_argument("--extra-benign-repo-root", default="",
-                        help="external dir with extra benign-repo cases (cloned repo "
-                             "roots) → benign-repo-extended (cmd: 'pip install .').")
-    parser.add_argument("--extra-benign-skill-root", default="",
-                        help="external dir with extra benign-skill cases (skill dirs "
-                             "containing SKILL.md) → benign-skill-extended (cmd: "
-                             "'cat SKILL.md').")
     parser.add_argument("--chart-out", default="",
                         help="output PNG prefix; two files written: "
                              "<prefix>_dsr.png (OFF vs ON DSR) and "
@@ -401,43 +428,22 @@ def main(argv=None) -> int:
           f"verifier={getattr(cfg, 'verifier_mode', '?')}  "
           f"sandbox_img={getattr(cfg, 'sandbox_docker_image', '?')}")
 
-    # full panel — same structure as bench/static_analysis_reliability.py so
-    # the framework bench is directly comparable to the static-only bench.
+    # Full panel — commands use ``{name}`` substituted per case with the real
+    # external source name (resolved from metadata.package or dir name) so the
+    # safeguard sees what an agent would actually emit (``pip install attrs``,
+    # not ``pip install pkg``).
     panels = (
-        _panel("datadog-pypi",    "malicious", cap, "pip install pkg",  _datadog_scan_root)
-        + _panel("datadog-npm",   "malicious", cap, "npm install pkg",  _datadog_scan_root)
-        + _panel("malicious-repos", "malicious", cap, "pip install .")
-        + _panel("skill-inject",  "malicious", cap, "cat SKILL.md")
-        + _panel("toolhijacker",  _label_by_prefix, cap, "cat SKILL.md")
-        + _panel("benign-pypi",   "benign", cap, "pip install pkg")
-        + _panel("benign-skills", "benign", cap, "cat SKILL.md")
-        + _panel("benign-tools",  "benign", cap, "cat SKILL.md")
+        _panel("datadog-pypi",    "malicious",       cap, "pip install {name}", _datadog_scan_root)
+        + _panel("datadog-npm",   "malicious",       cap, "npm install {name}", _datadog_scan_root)
+        + _panel("malicious-repos", "malicious",     cap, "pip install .")
+        + _panel("skill-inject",  "malicious",       cap, "cat SKILL.md")
+        + _panel("toolhijacker",  _label_by_prefix,  cap, "cat SKILL.md")
+        + _panel("benign-pypi",   "benign",          cap, "pip install {name}", _datadog_scan_root)
+        + _panel("benign-npm",    "benign",          cap, "npm install {name}", _datadog_scan_root)
+        + _panel("benign-repos",  "benign",          cap, "pip install .")
+        + _panel("benign-skills", "benign",          cap, "cat SKILL.md")
+        + _panel("benign-tools",  "benign",          cap, "cat SKILL.md")
     )
-    # Extra benign cases from external corpus roots (each ``<root>/<case>/`` is
-    # one case, same flow as the matching base family).
-    extras = [
-        (args.extra_benign_root,       "benign-pypi-extended",  "pip install pkg"),
-        (args.extra_benign_npm_root,   "benign-npm-extended",   "npm install pkg"),
-        (args.extra_benign_repo_root,  "benign-repo-extended",  "pip install ."),
-        (args.extra_benign_skill_root, "benign-skill-extended", "cat SKILL.md"),
-    ]
-    for root_arg, family_name, cmd in extras:
-        if not root_arg:
-            continue
-        root = Path(root_arg)
-        if not root.is_dir():
-            continue
-        extra_cases = sorted([p for p in root.iterdir() if p.is_dir()])
-        if cap:
-            extra_cases = extra_cases[:cap]
-        for case_dir in extra_cases:
-            panels.append({
-                "family": family_name,
-                "label": "benign",
-                "case": case_dir.name,
-                "cwd": str(case_dir),
-                "command": cmd,
-            })
     if args.families:
         keep = {f.strip() for f in args.families.split(",") if f.strip()}
         panels = [p for p in panels if p["family"] in keep]
@@ -451,9 +457,10 @@ def main(argv=None) -> int:
     for i, case in enumerate(panels, start=1):
         family = case["family"]
         case_name = case["case"]
+        real_name = case.get("name", case_name)
         cmd = case["command"]
         sc = SCENARIOS.get(family, {})
-        task = sc.get("task", "Run the requested action.").format(name=case_name)
+        task = sc.get("task", "Run the requested action.").format(name=real_name)
         history = sc.get("history", [])
         reason = sc.get("action_reason", "Follow the user's instruction.")
         action = {"type": "command", "command": cmd, "reason": reason}
