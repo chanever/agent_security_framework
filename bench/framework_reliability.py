@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import inspect as _i
 import json
+import re
 import sys
 import time
 from collections import Counter
@@ -51,6 +52,36 @@ from security_framework.config import SecurityFrameworkConfig                   
 from security_framework.safeguard.shadow_sandbox_safeguard import ShadowSandboxSafeguard  # noqa: E402
 
 BENCH = Path("/home/user/agent-mds/eval/benchmarks")
+
+
+# ───────────── per-family agent-scenario templates ─────────────
+# The README's `examples/` scenarios run vulnerable_cli_agent with --task and
+# --workspace. To match that flow each case feeds the framework not just a
+# raw command but a realistic (user_task + agent history + action reason)
+# tuple — the same shape an agent receiving a user instruction would emit.
+# Scenarios live as markdown files in ``bench/scenarios/<family>.md`` with a
+# fenced ``json`` block carrying the structured payload.
+
+SCENARIOS_DIR = HERE / "scenarios"
+_JSON_BLOCK_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
+
+
+def _load_scenarios(scenarios_dir: Path) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    if not scenarios_dir.is_dir():
+        return out
+    for md in sorted(scenarios_dir.glob("*.md")):
+        m = _JSON_BLOCK_RE.search(md.read_text(encoding="utf-8"))
+        if not m:
+            continue
+        data = json.loads(m.group(1))
+        family = data.get("family")
+        if family:
+            out[family] = data
+    return out
+
+
+SCENARIOS: dict[str, dict] = _load_scenarios(SCENARIOS_DIR)
 
 
 # ───────────────────────── per-family case resolvers ─────────────────────────
@@ -138,8 +169,18 @@ def main(argv=None) -> int:
                         help="comma-separated subset, e.g. 'datadog-pypi,benign-pypi'")
     parser.add_argument("--extra-benign-root", default="",
                         help="external dir with extra benign-pypi cases mirroring "
-                             "<case>/artifact/<pkg-ver>/ layout (e.g. /tmp/benign_extended). "
-                             "Each top-level subdir becomes a benign-pypi-extended case.")
+                             "<case>/artifact/<pkg-ver>/ layout. Each top-level subdir "
+                             "becomes a benign-pypi-extended case (cmd: 'pip install pkg').")
+    parser.add_argument("--extra-benign-npm-root", default="",
+                        help="external dir with extra benign-npm cases → "
+                             "benign-npm-extended (cmd: 'npm install pkg').")
+    parser.add_argument("--extra-benign-repo-root", default="",
+                        help="external dir with extra benign-repo cases (cloned repo "
+                             "roots) → benign-repo-extended (cmd: 'pip install .').")
+    parser.add_argument("--extra-benign-skill-root", default="",
+                        help="external dir with extra benign-skill cases (skill dirs "
+                             "containing SKILL.md) → benign-skill-extended (cmd: "
+                             "'cat SKILL.md').")
     args = parser.parse_args(argv)
     cap = args.cap or None
 
@@ -167,23 +208,31 @@ def main(argv=None) -> int:
         + _panel("benign-skills", "benign", cap, "cat SKILL.md")
         + _panel("benign-tools",  "benign", cap, "cat SKILL.md")
     )
-    # Extra benign-pypi cases from an external corpus root (e.g. one populated
-    # by ``/tmp/setup_benign_extended.sh``). Each ``<root>/<pkg>/`` directory is
-    # treated as a benign-pypi-extended case, same flow as benign-pypi.
-    if args.extra_benign_root:
-        extra_root = Path(args.extra_benign_root)
-        if extra_root.is_dir():
-            extra_cases = sorted([p for p in extra_root.iterdir() if p.is_dir()])
-            if cap:
-                extra_cases = extra_cases[:cap]
-            for case_dir in extra_cases:
-                panels.append({
-                    "family": "benign-pypi-extended",
-                    "label": "benign",
-                    "case": case_dir.name,
-                    "cwd": str(case_dir),
-                    "command": "pip install pkg",
-                })
+    # Extra benign cases from external corpus roots (each ``<root>/<case>/`` is
+    # one case, same flow as the matching base family).
+    extras = [
+        (args.extra_benign_root,       "benign-pypi-extended",  "pip install pkg"),
+        (args.extra_benign_npm_root,   "benign-npm-extended",   "npm install pkg"),
+        (args.extra_benign_repo_root,  "benign-repo-extended",  "pip install ."),
+        (args.extra_benign_skill_root, "benign-skill-extended", "cat SKILL.md"),
+    ]
+    for root_arg, family_name, cmd in extras:
+        if not root_arg:
+            continue
+        root = Path(root_arg)
+        if not root.is_dir():
+            continue
+        extra_cases = sorted([p for p in root.iterdir() if p.is_dir()])
+        if cap:
+            extra_cases = extra_cases[:cap]
+        for case_dir in extra_cases:
+            panels.append({
+                "family": family_name,
+                "label": "benign",
+                "case": case_dir.name,
+                "cwd": str(case_dir),
+                "command": cmd,
+            })
     if args.families:
         keep = {f.strip() for f in args.families.split(",") if f.strip()}
         panels = [p for p in panels if p["family"] in keep]
@@ -196,9 +245,22 @@ def main(argv=None) -> int:
     t_total = time.monotonic()
     for i, case in enumerate(panels, start=1):
         family = case["family"]
-        action = {"type": "command", "command": case["command"],
-                  "reason": "framework reliability benchmark"}
-        context = {"cwd": case["cwd"], "history": [], "step": i - 1}
+        case_name = case["case"]
+        cmd = case["command"]
+        sc = SCENARIOS.get(family, {})
+        task = sc.get("task", "Run the requested action.").format(name=case_name)
+        history = sc.get("history", [])
+        reason = sc.get("action_reason", "Follow the user's instruction.")
+        action = {"type": "command", "command": cmd, "reason": reason}
+        # examples-style agent context: user task + plausible 1-step history +
+        # workspace, mirroring vulnerable_cli_agent --task --workspace flow.
+        context = {
+            "cwd": case["cwd"],
+            "history": history,
+            "step": len(history),
+            "task": task,
+            "run_id": f"bench_{family}_{case_name}",
+        }
         t0 = time.monotonic()
         try:
             res = sg.inspect(action, context)
