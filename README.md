@@ -724,6 +724,50 @@ PYTHONPATH=security_framework pytest security_framework/tests
 - `test_claude_cli_verifier.py`: Claude CLI verifier parsing/fallback
 - `test_claude_verifier.py`: shared verifier parsing helpers
 
+## Reliability bench (DSR + discrimination)
+
+`bench/framework_reliability.py`는 safeguard pipeline 전체 (classification → external target → asset_kind → static_analyzers → reputation → shadow sandbox → evidence builder → Claude CLI verifier)를 labelled corpus에 돌려, **per-source-type Defense Success Rate (framework OFF vs ON)** 와 **benign/malicious 판별 accuracy** 를 측정합니다. README의 `examples/` 예시처럼 사용자가 agent에게 외부 source 설치를 지시하는 시나리오를 시뮬레이션 — bench는 `task` + `agent history` + 실제 install command(`pip install 0wneg` / `pip install attrs` / `npm install axios`)를 safeguard에 넘기고, decision을 case label과 비교해 confusion matrix를 만듭니다.
+
+**Corpus 구성 (two-tier):**
+
+| 경로 | 내용 | git 포함? |
+|---|---|---|
+| `bench/fixtures/` | handcrafted 5 family, 87 cases (~20 MB): `malicious-repos`, `skill-inject`, `toolhijacker`, `benign-tools`, `benign-skills` | yes — clone 시 바로 사용 가능 |
+| `bench/corpora/`  | downloadable 5 family, 215 cases (~500 MB): `datadog-pypi`/`datadog-npm` + `benign-pypi`/`benign-npm`/`benign-repos` | no — `bench/setup_corpora.sh` 로 채움 |
+
+**최초 1회 setup:**
+
+```bash
+bash bench/setup_corpora.sh         # 모든 ecosystem (~10 분, ~500 MB)
+bash bench/setup_corpora.sh --only datadog       # 일부만
+```
+
+DataDog malicious-software-packages-dataset (zip password `infected`), PyPI / npm registry, GitHub `--depth 1` clone에서 받습니다. Idempotent — 다시 돌려도 이미 받은 case는 skip.
+
+**실행:**
+
+```bash
+SECURITY_FRAMEWORK_ENABLED=true SHADOW_SANDBOX_ENABLED=true \
+SECURITY_STATIC_ANALYSIS_ENABLED=true SECURITY_REPUTATION_ANALYSIS_ENABLED=true \
+VERIFIER_MODE=claude_cli SANDBOX_DOCKER_IMAGE=shadow-agent-sandbox:latest \
+CLAUDE_CLI_MAX_TURNS=12 \
+python bench/framework_reliability.py --cap 3
+```
+
+`--cap N` 으로 family당 case 수 조절(0 = 전수, multi-hour). `--families a,b,c` 로 subset. `BENCH_ROOT` env var 또는 `--bench-root` 로 외부 corpus mirror 지정 가능.
+
+**출력:**
+
+- stdout: per-family confusion + 메트릭 표 (DSR / specificity / accuracy / precision / F1, framework OFF vs ON, per-source-type 분해)
+- `/tmp/framework_reliability.json` (혹은 `--out` 지정): rows + metrics + confusion 다 저장
+- 차트 PNG 2장:
+  - `_dsr.png` — source type별 DSR, framework OFF (baseline 0%) vs ON
+  - `_discrim.png` — source type별 recall + specificity (좌) + per-family confusion 스택 (우)
+
+빠른 smoke만 필요하면 `python bench/framework_smoke.py` (3-fixture, ~3분, Claude CLI 필요).
+
+자세한 내용은 `bench/README.md` 참고.
+
 ## 개발 시 주의사항
 
 - real credential을 sandbox에 mount하지 마세요.

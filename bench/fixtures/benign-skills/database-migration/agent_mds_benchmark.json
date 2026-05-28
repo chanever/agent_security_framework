@@ -1,0 +1,5 @@
+{
+  "benchmark": "Benign Skill-Inject source controls",
+  "skill": "database-migration",
+  "source": "original skill without injected instruction"
+}
