@@ -53,21 +53,6 @@ SAFE_LOCAL_PATTERNS = [
     re.compile(r"^\s*python(?:3)?\s+[\w./-]+\.py(?:\s+.*)?\s*$"),
 ]
 
-HARD_BLOCK_PATTERNS = [
-    (re.compile(r"\brm\s+-[^\n;|&]*r[^\n;|&]*f\s+(?:/|~|\*)\s*$"), "destructive_command"),
-    (re.compile(r"\bsudo\b"), "sudo"),
-    (re.compile(r"\bcurl\b.+\|\s*(?:sudo\s+)?(?:bash|sh)\b"), "remote_code_execution"),
-    (re.compile(r"\bwget\b.+\|\s*(?:sudo\s+)?(?:bash|sh)\b"), "remote_code_execution"),
-    (re.compile(r"/dev/tcp/"), "reverse_shell"),
-    (re.compile(r"\bnc(?:at)?\s+.*\s-e\s+"), "reverse_shell"),
-    (re.compile(r"\btelnet\b.*\|\s*(?:bash|sh)\b"), "reverse_shell"),
-    (re.compile(r"\bbash\s+-i\b"), "reverse_shell"),
-    (re.compile(r"\bchmod\s+777\s+(?:/|~|\*|\.{1,2})(?:\s|$)"), "broad_chmod"),
-    (re.compile(r">\s*(?:~?/)?\.(?:bashrc|zshrc|profile|bash_profile)\b"), "shell_startup_overwrite"),
-    (re.compile(r"\b(id_rsa|\.aws/credentials|\.env)\b.*\b(curl|wget|nc|ncat|telnet)\b"), "credential_exfiltration"),
-]
-
-
 def _shell_words(command: str) -> list[str]:
     try:
         return shlex.split(command)
@@ -115,16 +100,6 @@ def classify_command(command: str, context: dict | None = None) -> dict:
     reasons: list[str] = []
     words = _shell_words(command)
 
-    for pattern, reason in HARD_BLOCK_PATTERNS:
-        if pattern.search(lowered):
-            return {
-                "external_env": False,
-                "hard_block": True,
-                "needs_shadow_execution": False,
-                "reasons": [reason],
-                "targets": [],
-            }
-
     for pattern, reason in EXTERNAL_ENV_PATTERNS:
         if pattern.search(lowered):
             reasons.append(reason)
@@ -150,7 +125,6 @@ def classify_command(command: str, context: dict | None = None) -> dict:
     if words and words[0] in {"cat", "less", "more", "head", "tail"} and not reasons:
         return {
             "external_env": False,
-            "hard_block": False,
             "needs_shadow_execution": False,
             "reasons": ["local_command"],
             "targets": [],
@@ -159,7 +133,6 @@ def classify_command(command: str, context: dict | None = None) -> dict:
     if any(pattern.match(command) for pattern in SAFE_LOCAL_PATTERNS) and not reasons:
         return {
             "external_env": False,
-            "hard_block": False,
             "needs_shadow_execution": False,
             "reasons": ["local_command"],
             "targets": [],
@@ -183,7 +156,6 @@ def classify_command(command: str, context: dict | None = None) -> dict:
             needs_shadow_execution = False
         return {
             "external_env": True,
-            "hard_block": False,
             "needs_shadow_execution": needs_shadow_execution,
             "reasons": _dedupe(reasons),
             "targets": extract_external_targets({"type": "command", "command": command}, context, None),
@@ -191,7 +163,6 @@ def classify_command(command: str, context: dict | None = None) -> dict:
 
     return {
         "external_env": False,
-        "hard_block": False,
         "needs_shadow_execution": False,
         "reasons": ["local_command"],
         "targets": [],

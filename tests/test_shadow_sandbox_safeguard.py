@@ -101,11 +101,30 @@ def test_external_package_command_runs_sandbox_and_uses_verifier(monkeypatch, tm
     assert result["verifier_result"] is not None
 
 
-def test_hard_block_skips_sandbox(monkeypatch, tmp_path: Path):
+def test_destructive_local_command_uses_verifier_not_rule_block(monkeypatch, tmp_path: Path):
     def fail_run(*args, **kwargs):
-        raise AssertionError("sandbox should not run for hard-blocked commands")
+        raise AssertionError("local commands do not need sandbox execution")
+
+    def hold_verify(evidence_package, config):
+        return {
+            "decision": "HOLD",
+            "overall_safety_score": 0.2,
+            "risk_score": 0.9,
+            "risk_level": "HIGH",
+            "task_alignment_score": 0.1,
+            "action_necessity_score": 0.1,
+            "source_trust_score": 0.5,
+            "data_isolation_score": 0.2,
+            "side_effect_safety_score": 0.1,
+            "uncertainty_score": 0.8,
+            "violated_properties": ["destructive_behavior"],
+            "evidence": [],
+            "reason": "fake verifier hold",
+            "recommended_action": "hold",
+        }
 
     monkeypatch.setattr("security_framework.safeguard.shadow_sandbox_safeguard.run_in_sandbox", fail_run)
+    monkeypatch.setattr("security_framework.safeguard.shadow_sandbox_safeguard.verify", hold_verify)
     safeguard = ShadowSandboxSafeguard(_config(tmp_path))
 
     result = safeguard.inspect(
@@ -114,8 +133,7 @@ def test_hard_block_skips_sandbox(monkeypatch, tmp_path: Path):
     )
 
     assert result["decision"] == "block"
-    assert result["classification"]["hard_block"] is True
-    assert result["verifier_result"] is not None
+    assert result["verifier_result"]["decision"] == "HOLD"
     assert "evidence_package_path" in result
 
 
@@ -155,7 +173,6 @@ def test_external_analysis_skips_analyzers_when_flags_are_disabled(monkeypatch, 
         {"task": "Install", "cwd": str(tmp_path)},
         {
             "external_env": True,
-            "hard_block": False,
             "needs_shadow_execution": True,
             "reasons": ["package_install"],
             "targets": [{"type": "local_package", "path": ".", "source": "pip install ."}],
@@ -192,7 +209,6 @@ def test_external_analysis_runs_enabled_analyzers(monkeypatch, tmp_path: Path):
         {"task": "Install", "cwd": str(tmp_path)},
         {
             "external_env": True,
-            "hard_block": False,
             "needs_shadow_execution": True,
             "reasons": ["package_install"],
             "targets": [{"type": "local_package", "path": ".", "source": "pip install ."}],

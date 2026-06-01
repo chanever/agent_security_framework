@@ -38,7 +38,6 @@ No setup.py or pyproject.toml — the framework uses stdlib only. pytest is the 
 Agent action
   → ShadowSandboxSafeguard.inspect()
       → trigger.py: classify_command()          # Is this an external-env action?
-          → If hard_block: BLOCK immediately
           → If needs_shadow_execution:
               → sandbox_runner.py               # Run in Docker + strace
               → trace_parser.py                 # Parse syscalls into structured events
@@ -52,7 +51,6 @@ Agent action
 
 **Classification** (trigger.py output):
 - `external_env`: touches anything outside the local workspace
-- `hard_block`: immediately block without sandbox (e.g. `curl | bash`, `sudo`, `rm -rf /`)
 - `needs_shadow_execution`: run in sandbox first
 
 **Evidence Package** (evidence_builder.py output): JSON with `user_task`, `current_action`, `external_environment`, `system_trace` (file_access / process_execution / network_activity), and `external_interaction_analysis`. This is what gets sent to the verifier.

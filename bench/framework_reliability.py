@@ -304,6 +304,47 @@ def _baseline_metrics_from_labels(rows: list[dict]) -> dict:
     }
 
 
+def _case_key(row: dict) -> tuple[str, str]:
+    return str(row.get("family", "")), str(row.get("case", ""))
+
+
+def _write_results(out: Path, rows: list[dict], elapsed_total: float) -> None:
+    confusion_per_family: dict[str, Counter] = {}
+    confusion_total: Counter = Counter()
+    for row in rows:
+        family = row.get("family", "")
+        outcome = row.get("outcome", "ERR")
+        confusion_per_family.setdefault(family, Counter())[outcome] += 1
+        confusion_total[outcome] += 1
+
+    framework = _compute_metrics(rows)
+    baseline = _baseline_metrics_from_labels(rows)
+    per_source_type = _per_source_type_metrics(rows)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({
+        "confusion_total": dict(confusion_total),
+        "confusion_per_family": {k: dict(v) for k, v in confusion_per_family.items()},
+        "metrics_framework_on": framework,
+        "metrics_baseline_off": baseline,
+        "metrics_per_source_type": per_source_type,
+        "elapsed_min": round(elapsed_total / 60, 2),
+        "rows": rows,
+    }, indent=2, default=str))
+
+
+_CLAUDE_LIMIT_PATTERNS = (
+    "session limit",
+    "usage limit",
+    "rate limit",
+    "too many requests",
+)
+
+
+def _is_claude_limit(row: dict) -> bool:
+    text = " ".join(str(row.get(k) or "") for k in ("reason", "error")).lower()
+    return any(pattern in text for pattern in _CLAUDE_LIMIT_PATTERNS)
+
+
 def _render_charts(framework: dict, baseline: dict,
                    per_family: dict[str, Counter],
                    per_source_type: dict[str, dict],
@@ -448,6 +489,9 @@ def main(argv=None) -> int:
                              "Default: derived from --out.")
     parser.add_argument("--no-chart", action="store_true",
                         help="skip chart rendering.")
+    parser.add_argument("--resume", action="store_true",
+                        help="read --out if it exists, skip already completed "
+                             "(family, case) rows, and checkpoint after each case.")
     args = parser.parse_args(argv)
     if args.bench_root:
         global BENCH_ROOTS
@@ -486,12 +530,31 @@ def main(argv=None) -> int:
         keep = {f.strip() for f in args.families.split(",") if f.strip()}
         panels = [p for p in panels if p["family"] in keep]
 
-    print(f"panel size: {len(panels)}\n")
+    out = Path(args.out)
+    rows: list[dict] = []
+    if args.resume and out.is_file():
+        try:
+            previous = json.loads(out.read_text(encoding="utf-8"))
+            rows = list(previous.get("rows") or [])
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"  resume ignored: failed to read {out}: {type(exc).__name__}: {exc}")
+            rows = []
+    completed = {_case_key(r) for r in rows if _case_key(r) != ("", "")}
+    if completed:
+        panels = [p for p in panels if _case_key(p) not in completed]
+        print(f"resume: loaded {len(completed)} completed rows from {out}")
+
+    print(f"panel size: {len(panels)} pending ({len(rows)} already complete)\n")
 
     confusion_per_family: dict[str, Counter] = {}
     confusion_total: Counter = Counter()
-    rows: list[dict] = []
+    for row in rows:
+        outcome = row.get("outcome", "ERR")
+        confusion_per_family.setdefault(row.get("family", ""), Counter())[outcome] += 1
+        confusion_total[outcome] += 1
     t_total = time.monotonic()
+    interrupted = False
+    quota_limited = False
     for i, case in enumerate(panels, start=1):
         family = case["family"]
         case_name = case["case"]
@@ -521,12 +584,22 @@ def main(argv=None) -> int:
             row = {**case, "decision": decision, "outcome": outcome,
                    "elapsed_s": round(elapsed, 1),
                    "reason": str(res.get("reason", ""))[:160], **stages}
+        except KeyboardInterrupt:
+            interrupted = True
+            print("\n  interrupted: checkpointing completed rows before exit.")
+            break
         except Exception as exc:  # noqa: BLE001
             elapsed = time.monotonic() - t0
             outcome = "ERR"
             row = {**case, "decision": None, "outcome": "ERR",
                    "elapsed_s": round(elapsed, 1),
                    "error": f"{type(exc).__name__}: {exc}"[:200]}
+
+        if _is_claude_limit(row):
+            quota_limited = True
+            print("\n  Claude CLI usage/session limit detected; stopping before checkpointing this case.")
+            print(f"  last case not saved: {family}/{case_name}")
+            break
 
         rows.append(row)
         confusion_per_family.setdefault(family, Counter())[outcome] += 1
@@ -538,6 +611,8 @@ def main(argv=None) -> int:
               f"(f={row.get('static_findings', 0)}) rep={row.get('reputation_status')}"
               f"({row.get('reputation_signals', 0)}) sb={row.get('sandbox_status')} "
               f"[{elapsed:.0f}s]")
+        if args.resume:
+            _write_results(out, rows, time.monotonic() - t_total)
 
     elapsed_total = time.monotonic() - t_total
 
@@ -567,17 +642,15 @@ def main(argv=None) -> int:
                   f"{m['dsr'] * 100:>6.1f}% {m['specificity'] * 100:>6.1f}% "
                   f"{m['accuracy'] * 100:>6.1f}%")
 
-    out = Path(args.out)
-    out.write_text(json.dumps({
-        "confusion_total": dict(confusion_total),
-        "confusion_per_family": {k: dict(v) for k, v in confusion_per_family.items()},
-        "metrics_framework_on": framework,
-        "metrics_baseline_off": baseline,
-        "metrics_per_source_type": per_source_type,
-        "elapsed_min": round(elapsed_total / 60, 2),
-        "rows": rows,
-    }, indent=2, default=str))
+    _write_results(out, rows, elapsed_total)
     print(f"Details → {out}")
+
+    if interrupted:
+        print("Resume later with the same command plus --resume.")
+        return 130
+    if quota_limited:
+        print("Resume after the Claude limit resets with the same command plus --resume.")
+        return 75
 
     if not args.no_chart:
         prefix = Path(args.chart_out) if args.chart_out else out.with_suffix("")

@@ -165,8 +165,8 @@ def analyze_reputation(
     if not classification.get("external_env") or not targets:
         return skipped_result()
 
-    from security_framework import artifact_classifier
-    from security_framework import reputation as _reputation_pkg
+    import artifact_classifier
+    import reputation as _reputation_pkg
 
     nodes = artifact_classifier.classify(targets or [], context=context or {})
     if not nodes:

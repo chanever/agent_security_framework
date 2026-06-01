@@ -37,23 +37,6 @@ class ShadowSandboxSafeguard:
         command = action.get("command", "")
         classification = classify_command(command, context)
 
-        if classification.get("hard_block"):
-            run_dir = self._run_dir(context)
-            external_analysis = self._external_interaction_analysis(action, context, classification)
-            evidence_package = build_evidence_package(context.get("task", ""), context, action, classification, None, None, external_analysis)
-            verifier_result = verify(evidence_package, self.config)
-            evidence_path = write_evidence_package(evidence_package, run_dir / "evidence_package.json")
-            self._write_json(run_dir / "verifier_result.json", verifier_result)
-            return self._block(
-                action,
-                "Hard-blocked before sandbox execution.",
-                classification=classification,
-                context=context,
-                verifier_result=verifier_result,
-                evidence_path=evidence_path,
-                run_dir=run_dir,
-            )
-
         if not classification.get("external_env"):
             run_dir = self._run_dir(context)
             external_analysis = self._external_interaction_analysis(action, context, classification)

@@ -218,8 +218,8 @@ def analyze_static(
     # Dispatch via artifact_classifier when targets carry concrete types.
     # This gives per-type analyzer breakdown (skill / repo / pypi / npm) that
     # the verifier can use instead of a single undifferentiated findings list.
-    from security_framework import artifact_classifier
-    from security_framework import static_analyzers as _analyzers_pkg
+    import artifact_classifier
+    import static_analyzers as _analyzers_pkg
 
     nodes = artifact_classifier.classify(targets or [], context=context or {})
     # Classifier contract: when a workspace exists it always emits at least
