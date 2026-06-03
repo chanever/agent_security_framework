@@ -69,6 +69,7 @@ def _pypi_metadata_signals(name: str, *, timeout: int) -> dict:
         "release_count": len(releases),
         "summary_text": (info.get("summary") or "")[:200],
         "home_page": info.get("home_page") or info.get("project_urls", {}).get("Homepage") if isinstance(info.get("project_urls"), dict) else "",
+        "latest_version": info.get("version") or "",
     }
 
 
@@ -77,19 +78,23 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
     if not name:
         return None
 
-    # 1) OSV vulnerabilities
+    # 2) PyPI metadata — fetched first so we know the version the agent's
+    # ``pip install <name>`` would actually pick when no version is pinned;
+    # OSV filtering downstream uses it to drop CVEs that only affect
+    # earlier, already-fixed releases.
+    pypi_meta = _pypi_metadata_signals(name, timeout=timeout)
+    target_version = node.get("version") or pypi_meta.get("latest_version") or None
+
+    # 1) OSV vulnerabilities, filtered to the version the install resolves to.
     osv_payload = _osv.query(name, "PyPI", timeout=timeout)
     if osv_payload is None:
         osv_signal = {"osv_status": "unavailable", "vuln_count": 0, "severities": [], "ids": []}
     else:
-        osv_signal = _osv.signal_from_payload(name, "PyPI", osv_payload)
+        osv_signal = _osv.signal_from_payload(name, "PyPI", osv_payload, target_version=target_version)
         osv_signal["osv_status"] = "success"
 
-    # 2) deps.dev maturity
+    # 3) deps.dev maturity
     depsdev = _depsdev_signals(name, timeout=timeout)
-
-    # 3) PyPI metadata
-    pypi_meta = _pypi_metadata_signals(name, timeout=timeout)
 
     # 4) Typosquat — local Levenshtein vs popular PyPI top-100
     from ._typosquat import check as _typosquat_check

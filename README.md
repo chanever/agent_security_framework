@@ -329,7 +329,7 @@ security_framework/
     __init__.py                   #   artifact_type → analyzer dispatch
     pypi_analyzer.py              #   semgrep 체인 + 난독화/install-hook
     npm_analyzer.py
-    repo_analyzer.py              #   semgrep + Gitleaks
+    repo_analyzer.py              #   semgrep chain (language-agnostic)
     skill_analyzer.py             #   phrase scan + cross-file ref-walk
     _obfuscation.py               #   packed/long-line/base64 휴리스틱
     _npm_manifest.py              #   package.json install-hook 탐지
@@ -377,7 +377,7 @@ reputation 진입점(`analyze_reputation`)입니다. 같은 방식으로 `reputa
 action의 target들을 `pypi_package`/`npm_package`/`github_repo`/`skill` 등 artifact node로 분해합니다(bounded BFS). 두 모듈의 공통 입력입니다.
 
 `static_analyzers/` (정적분석 모듈, 우리 팀)  
-artifact 내용(코드/스크립트/instruction)을 분석합니다. semgrep 체인(p/security-audit + GuardDog + chanever rules) + 로컬 휴리스틱(난독화 packing density, base64/hex blob, npm install-hook), repo는 Gitleaks, skill은 phrase scan + cross-file ref-walk. finding shape `{rule_id, severity, path, line, message, source}`. semgrep timeout은 `unavailable`이 아니라 휴리스틱 결과를 담은 `success`로 반환합니다.
+artifact 내용(코드/스크립트/instruction)을 분석합니다. semgrep 체인(p/security-audit + GuardDog + chanever rules) + 로컬 휴리스틱(난독화 packing density, base64/hex blob, npm install-hook), repo는 동일 semgrep 체인, skill은 phrase scan + cross-file ref-walk. finding shape `{rule_id, severity, path, line, message, source}`. semgrep timeout은 `unavailable`이 아니라 휴리스틱 결과를 담은 `success`로 반환합니다.
 
 `reputation/` (평판 조회 모듈, 우리 팀)  
 artifact의 **출처 신뢰성**(작성자/배포처/이력)만 봅니다 — 내용 분석은 정적분석 몫. OSV.dev(취약점) + deps.dev(버전 이력) + 레지스트리 metadata + typosquat(Levenshtein) + known-bad(DataDog·OSSF 인용), repo는 OpenSSF Scorecard + GitHub Advisory, skill은 배포처/작성자 신뢰도. signal에 `known_bad_sources` 등 출처를 함께 기록합니다.

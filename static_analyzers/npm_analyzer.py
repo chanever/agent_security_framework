@@ -105,15 +105,21 @@ def analyze(node: dict, cfg) -> dict:
         + _scan_error_findings(payload)
     )
     sev_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    install_time = use_time = 0
     for f in findings:
         sev_counts[f["severity"]] = sev_counts.get(f["severity"], 0) + 1
+        if f.get("category") == "install_time":
+            install_time += 1
+        elif f.get("category") == "use_time":
+            use_time += 1
     return {
         "status": "success",
         "findings": findings,
         "summary": (
             f"npm semgrep+GuardDog+chanever+obf+manifest: {len(findings)} findings "
             f"(CRITICAL={sev_counts['CRITICAL']}, HIGH={sev_counts['HIGH']}, "
-            f"MEDIUM={sev_counts['MEDIUM']}, LOW={sev_counts['LOW']})"
+            f"MEDIUM={sev_counts['MEDIUM']}, LOW={sev_counts['LOW']}; "
+            f"install_time={install_time}, use_time={use_time})"
         ),
         "analyzer": "npm",
         "scan_root": str(scan_root),

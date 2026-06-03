@@ -57,7 +57,16 @@ _B64_RUN = re.compile(r"[A-Za-z0-9+/]{%d,}={0,2}" % B64_MIN_RUN)
 _HEX_RUN = re.compile(r"(?<![0-9a-fA-FxX])[0-9a-fA-F]{%d,}(?![0-9a-fA-F])" % HEX_MIN_RUN)
 
 
+_INSTALL_TIME_BASENAMES = {
+    "setup.py", "setup.cfg", "pyproject.toml",
+    "__init__.py",
+    "package.json", "package-lock.json",
+}
+
+
 def _finding(rule_id: str, severity: str, path: str, line: int, message: str) -> dict:
+    import os.path
+    category = "install_time" if os.path.basename(path or "") in _INSTALL_TIME_BASENAMES else "use_time"
     return {
         "rule_id": rule_id,
         "severity": severity,
@@ -65,6 +74,7 @@ def _finding(rule_id: str, severity: str, path: str, line: int, message: str) ->
         "line": line,
         "message": message,
         "source": "obfuscation-heuristic",
+        "category": category,
     }
 
 

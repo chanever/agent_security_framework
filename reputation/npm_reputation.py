@@ -24,6 +24,7 @@ from . import _osv
 
 DEPS_DEV_URL_FMT = "https://api.deps.dev/v3/systems/NPM/packages/{name}"
 NPM_DOWNLOADS_URL_FMT = "https://api.npmjs.org/downloads/point/last-week/{name}"
+NPM_LATEST_URL_FMT = "https://registry.npmjs.org/{name}/latest"
 
 
 def _http_get_json(url: str, *, timeout: int) -> dict | None:
@@ -54,6 +55,19 @@ def _depsdev_signals(name: str, *, timeout: int) -> dict:
         "earliest_published": pubs[0] if pubs else None,
         "latest_published": pubs[-1] if pubs else None,
     }
+
+
+def _npm_latest_version(name: str, *, timeout: int) -> str | None:
+    """Resolve the version ``npm install <name>`` would pick when no
+    version is pinned. Used to scope OSV vulnerabilities to releases
+    that still apply (CVEs fixed in older versions stop accumulating
+    as evidence the verifier has to argue against)."""
+    encoded = urllib.parse.quote(name, safe="")
+    payload = _http_get_json(NPM_LATEST_URL_FMT.format(name=encoded), timeout=timeout)
+    if not payload:
+        return None
+    version = payload.get("version")
+    return version if isinstance(version, str) and version else None
 
 
 def _npm_downloads_signal(name: str, *, timeout: int) -> dict:
@@ -93,12 +107,14 @@ def lookup(node: dict, *, timeout: int = 10) -> dict | None:
     if not name:
         return None
 
+    target_version = node.get("version") or _npm_latest_version(name, timeout=timeout)
+
     osv_payload = _osv.query(name, "npm", timeout=timeout)
     if osv_payload is None:
         osv_signal = {"vuln_count": 0, "severities": [], "ids": []}
         osv_status = "unavailable"
     else:
-        osv_signal = _osv.signal_from_payload(name, "npm", osv_payload)
+        osv_signal = _osv.signal_from_payload(name, "npm", osv_payload, target_version=target_version)
         osv_status = "success"
 
     downloads = _npm_downloads_signal(name, timeout=timeout)
