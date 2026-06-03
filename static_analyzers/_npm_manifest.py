@@ -87,6 +87,9 @@ def _classify_hook(cmd: str) -> tuple[str, list[str]] | None:
 
 
 def _finding(rule_id: str, severity: str, path: str, message: str) -> dict:
+    # npm install-hook findings target package.json preinstall/postinstall —
+    # by definition the code runs the moment ``npm install`` executes, so
+    # they are always install_time threats.
     return {
         "rule_id": rule_id,
         "severity": severity,
@@ -94,6 +97,7 @@ def _finding(rule_id: str, severity: str, path: str, message: str) -> dict:
         "line": 0,
         "message": message,
         "source": "npm-manifest-heuristic",
+        "category": "install_time",
     }
 
 

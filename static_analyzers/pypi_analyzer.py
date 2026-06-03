@@ -32,6 +32,40 @@ _SEMGREP_SEVERITY_MAP = {
     "LOW": "LOW",
 }
 
+# Files whose contents execute as a side effect of the install action the
+# agent is being scrutinised for. setup.py runs during ``pip install``;
+# __init__.py runs at first import (which most install-driven exploits trigger
+# right after); package.json carries the npm pre/post-install hook scripts.
+_INSTALL_TIME_BASENAMES = {
+    "setup.py", "setup.cfg", "pyproject.toml",
+    "__init__.py",
+    "package.json", "package-lock.json",
+}
+
+
+def categorize_finding(path: str, rule_id: str) -> str:
+    """Bucket findings by threat-model relevance to the install action.
+
+    * ``install_time`` — code that runs when the agent executes ``pip
+      install`` / ``npm install``. Direct threat to the user's machine.
+    * ``use_time`` — security-audit patterns elsewhere in the package
+      source (handler functions, runtime helpers). Only matter if the
+      package is later *used* incorrectly; installing it alone does not
+      expose the user. Popular OSS libraries accumulate many such hits,
+      so the bucket lets the verifier weight them down.
+
+    The GuardDog / chanever rule packs target install-hook patterns by
+    design — they get the install_time tag regardless of file path. The
+    p/security-audit rule pack is general code-quality and gets
+    classified by file location.
+    """
+    if rule_id.startswith("guarddog_rules.") or rule_id.startswith("chanever_rules."):
+        return "install_time"
+    import os.path
+    if os.path.basename(path or "") in _INSTALL_TIME_BASENAMES:
+        return "install_time"
+    return "use_time"
+
 
 def _normalize_finding(raw: dict) -> dict:
     extra = raw.get("extra") or {}
@@ -43,13 +77,15 @@ def _normalize_finding(raw: dict) -> dict:
         line = int((raw.get("start") or {}).get("line", 0))
     except (TypeError, ValueError):
         line = 0
+    rule_id = raw.get("check_id") or "semgrep.unknown"
     return {
-        "rule_id": raw.get("check_id") or "semgrep.unknown",
+        "rule_id": rule_id,
         "severity": _SEMGREP_SEVERITY_MAP.get(sev, "LOW"),
         "path": path,
         "line": line,
         "message": extra.get("message") or "",
         "source": "semgrep",
+        "category": categorize_finding(path, rule_id),
     }
 
 
@@ -150,12 +186,19 @@ def _scan_error_findings(payload: dict) -> list[dict]:
 
 def _summary(findings: list[dict], rules_label: str) -> str:
     counts = {b: 0 for b in ("CRITICAL", "HIGH", "MEDIUM", "LOW")}
+    install_time = 0
+    use_time = 0
     for f in findings:
         counts[f["severity"]] = counts.get(f["severity"], 0) + 1
+        if f.get("category") == "install_time":
+            install_time += 1
+        elif f.get("category") == "use_time":
+            use_time += 1
     return (
         f"{rules_label}: {len(findings)} findings "
         f"(CRITICAL={counts['CRITICAL']}, HIGH={counts['HIGH']}, "
-        f"MEDIUM={counts['MEDIUM']}, LOW={counts['LOW']})"
+        f"MEDIUM={counts['MEDIUM']}, LOW={counts['LOW']}; "
+        f"install_time={install_time}, use_time={use_time})"
     )
 
 
