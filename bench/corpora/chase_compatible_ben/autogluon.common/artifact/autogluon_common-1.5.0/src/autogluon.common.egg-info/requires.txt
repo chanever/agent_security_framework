@@ -1,0 +1,15 @@
+numpy<2.4.0,>=1.25.0
+pandas<2.4.0,>=2.0.0
+pyarrow<21.0.0,>=7.0.0
+boto3<2,>=1.10
+psutil<7.2.0,>=5.7.3
+tqdm<5,>=4.38
+requests
+joblib<1.7,>=1.2
+pyyaml>=5.0
+
+[tests]
+pytest
+types-setuptools
+types-requests
+pytest-mypy

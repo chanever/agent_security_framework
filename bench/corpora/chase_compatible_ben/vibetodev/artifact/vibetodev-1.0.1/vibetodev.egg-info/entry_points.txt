@@ -1,0 +1,2 @@
+[console_scripts]
+vibetodev = vibetodev.cli:main

@@ -1,0 +1,39 @@
+numpy<2.4.0,>=1.25.0
+scipy<1.17,>=1.5.4
+scikit-learn<1.8.0,>=1.4.0
+networkx<4,>=3.0
+pandas<2.4.0,>=2.0.0
+tqdm<5,>=4.38
+requests
+matplotlib<3.11,>=3.7.0
+boto3<2,>=1.10
+autogluon.common==1.5.0
+
+[all]
+pyarrow>=15.0.0
+hyperopt<0.2.8,>=0.2.7
+stevedore<5.5
+
+[all:platform_system != "Windows" or python_version != "3.13"]
+ray[default,tune]<2.53,>=2.43.0
+ray[default]<2.53,>=2.43.0
+
+[ray]
+
+[ray:platform_system != "Windows" or python_version != "3.13"]
+ray[default]<2.53,>=2.43.0
+
+[raytune]
+pyarrow>=15.0.0
+hyperopt<0.2.8,>=0.2.7
+stevedore<5.5
+
+[raytune:platform_system != "Windows" or python_version != "3.13"]
+ray[default,tune]<2.53,>=2.43.0
+
+[tests]
+types-setuptools
+pytest-mypy
+pytest
+flake8
+types-requests

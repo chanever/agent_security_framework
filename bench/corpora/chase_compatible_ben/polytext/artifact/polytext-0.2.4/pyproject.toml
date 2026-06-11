@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "polytext"
+description = "Python utilities to simplify document files management"
+license = "MIT"
+authors = [ "Matteo Senardi <matteo.s@docsity.com>" ]
+readme = "README.md"
+build = "setup.py"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+pybind11 = "^2.12"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta:__legacy__"

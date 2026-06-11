@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: sythonlab_kiu_sdk
+Version: 0.0.4
+Summary: Sython Lab KIU SDK
+Home-page: https://github.com/sythonlab/SythonLab-Kiu-Sdk
+Author: José Angel Alvarez Abraira
+Author-email: sythonlab@gmail.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.34.2
+Requires-Dist: pandas>=3.0.3
+Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: xmltodict>=1.0.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

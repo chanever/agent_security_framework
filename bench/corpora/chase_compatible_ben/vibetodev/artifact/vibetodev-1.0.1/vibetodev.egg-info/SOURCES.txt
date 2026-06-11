@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+setup.py
+vibetodev/__init__.py
+vibetodev/__main__.py
+vibetodev/categorizer.py
+vibetodev/cli.py
+vibetodev/generator.py
+vibetodev/scanner.py
+vibetodev/validator.py
+vibetodev.egg-info/PKG-INFO
+vibetodev.egg-info/SOURCES.txt
+vibetodev.egg-info/dependency_links.txt
+vibetodev.egg-info/entry_points.txt
+vibetodev.egg-info/top_level.txt

@@ -1,0 +1,205 @@
+[
+  {
+     "name"    : "chronontology",
+     "match"   : "^https?://(?:[^.]*[.])?chronontology[.]dainst[.]org/period/([A-Za-z0-9]+)$",
+     "replace" : "https://chronontology.dainst.org/period/\\1",
+     "resolve" : "",
+     "format"  : ""
+  },
+  {
+     "name"    : "gnd",
+     "match"   : "^https?://(?:[^.]*[.])?d-nb[.]info/(?:gnd/)?([-A-Z0-9]+)(?:/.*)?$",
+     "replace" : "https://d-nb.info/gnd/\\1",
+     "resolve" : "https://d-nb.info/gnd/\\1/about/lds.ttl",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "gnd-lobid",
+     "match"   : "^https?://lobid.org/gnd/?([-A-Z0-9]+)(?:[.](?:json|rdf|ttl|nt))?$",
+     "replace" : "https://d-nb.info/gnd/\\1",
+     "resolve" : "https://d-nb.info/gnd/\\1/about/lds.ttl",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "gazetteer",
+     "match"   : "^https?://(?:[^.]*[.])?gazetteer[.]dainst[.]org/(?:[A-Za-z]+/)*([0-9]+)([^0-9].*)?$",
+     "replace" : "https://gazetteer.dainst.org/place/\\1",
+     "resolve" : "https://gazetteer.dainst.org/doc/\\1.rdf",
+     "format"  : "application/rdf+xml"
+  },
+  {
+     "name"    : "geonames",
+     "match"   : "^https?://(?:[^.]*[.])?geonames[.]org/([0-9]+)(/.*)?$",
+     "replace" : "https://sws.geonames.org/\\1/",
+     "resolve" : "https://sws.geonames.org/\\1/about.rdf",
+     "format"  : "application/rdf+xml"
+  },
+  {
+     "name"    : "n2t-periodo",
+     "match"   : "^https?://(?:[^.]*[.])?n2t[.]net/ark:/99152/p0([a-z0-9]+).*$",
+     "replace" : "http://n2t.net/ark:/99152/p0\\1",
+     "resolve" : "https://data.perio.do/\\1.ttl",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "periodo",
+     "match"   : "^https?://(?:[^.]*[.])?perio.do/([a-z0-9]+).*$",
+     "replace" : "http://n2t.net/ark:/99152/p0\\1",
+     "resolve" : "https://data.perio.do/\\1.ttl",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "orcid",
+     "match"   : "^https?://(?:[^.]*[.])?orcid[.]org/([0-9]{4})-?([0-9]{4})-?([0-9]{4})-?([0-9]{3}[0-9X])/?$",
+     "replace" : "https://orcid.org/\\1-\\2-\\3-\\4",
+     "resolve" : "https://pub.orcid.org/experimental_rdf_v1/\\1-\\2-\\3-\\4",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "pleiades",
+     "match"   : "^https?://(?:[^.]*[.])?pleiades[.]stoa[.]org/places/([0-9]+)(/.*)?$",
+     "replace" : "https://pleiades.stoa.org/places/\\1",
+     "resolve" : "https://pleiades.stoa.org/places/\\1",
+     "format"  : "application/json"
+  },
+  {
+     "name"    : "viaf",
+     "match"   : "^https?://(?:[^.]*[.])?viaf[.]org/viaf/([0-9]+)(/.*)?$",
+     "replace" : "http://viaf.org/viaf/\\1",
+     "resolve" : "https://viaf.org/viaf/\\1",
+     "format"  : "application/rdf+xml"
+  },
+  {
+     "name"    : "wikidata",
+     "match"   : "^https?://(?:[^.]*[.])?wikidata[.]org/(?:[A-Za-z:]+/)*(Q[0-9]+)([^[0-9].*)?$",
+     "replace" : "http://www.wikidata.org/entity/\\1",
+     "resolve" : "https://www.wikidata.org/wiki/Special:EntityData/\\1.nt?flavor=dump",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "getty",
+     "match"   : "^https?://vocab[.]getty[.]edu/(?:page/|hier/)?(aat|tgn|ulan|cona|ia)/([0-9]+)([.][a-z]+)?$",
+     "replace" : "http://vocab.getty.edu/\\1/\\2",
+     "resolve" : "http://vocab.getty.edu/\\1/\\2",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "hdl",
+     "match"   : "^https?://hdl.handle.net/(.*)$",
+     "replace" : "https://hdl.handle.net/\\1",
+     "resolve" : "https://hdl.handle.net/\\1",
+     "format"  : ""
+  },
+  {
+     "name"    : "isni",
+     "match"   : "^https?://isni.org/isni/([0-9]{4})-?([0-9]{4})-?([0-9]{4})-?([0-9]{3}[0-9X])(?:/.*)?$",
+     "replace" : "https://isni.org/isni/\\1\\2\\3\\4",
+     "resolve" : "https://isni-url.oclc.org/isni_resolve.php?q=\\1\\2\\3\\4/about.rdf",
+     "format"  : "application/rdf+xml"
+  },
+  {
+     "name"    : "loc-rwo-agents",
+     "match"   : "^https?://id.loc.gov/rwo/agents/n(o?[0-9]+)([.][a-z]+)?$",
+     "replace" : "http://id.loc.gov/rwo/agents/n\\1",
+     "resolve" : "https://id.loc.gov/rwo/agents/n\\1.nt",
+     "format"  : "text/plain"
+  },
+  {
+     "name"    : "pmb",
+     "match"   : "^https?://pmb.acdh.oeaw.ac.at(?:/apis/entities)?/entity(?:/[^/]+)?/([0-9]+)(?:/detail)?/?$",
+     "replace" : "https://pmb.acdh.oeaw.ac.at/entity/\\1/",
+     "resolve" : "https://pmb-service.acdh-dev.oeaw.ac.at/arche/\\1",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "arche",
+     "match"   : "^https://arche.acdh.oeaw.ac.at/api/([0-9]+)(?:/.*)?$",
+     "replace" : "https://arche.acdh.oeaw.ac.at/api/\\1",
+     "resolve" : "https://arche.acdh.oeaw.ac.at/api/\\1/metadata?readMode=resource",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "arche-curation",
+     "match"   : "^https://arche-curation.acdh-dev.oeaw.ac.at/api/([0-9]+)(?:/.*)?$",
+     "replace" : "https://arche-curation.acdh-dev.oeaw.ac.at/api/\\1",
+     "resolve" : "https://arche-curation.acdh-dev.oeaw.ac.at/api/\\1/metadata?readMode=resource",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "arche-dev",
+     "match"   : "^https://arche-(dev|design).acdh-dev.oeaw.ac.at/api/([0-9]+)(?:/.*)?$",
+     "replace" : "https://arche-\\1.acdh-dev.oeaw.ac.at/api/\\2",
+     "resolve" : "https://arche-\\1.acdh-dev.oeaw.ac.at/api/\\2/metadata?readMode=resource",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "acdhi",
+     "match"   : "^(https://id.acdh.oeaw.ac.at/.*)$",
+     "replace" : "\\1",
+     "resolve" : "\\1",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "arche-localhost",
+     "match"   : "^http://(127.0.0.1|localhost|arche-local)/(api/)?([0-9]+)(?:/.*)?$",
+     "replace" : "http://\\1/\\2\\3",
+     "resolve" : "http://\\1/\\2\\3/metadata?readMode=resource",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "gnd-vocab",
+     "match"   : "^https?://(?:[^.]*[.])?d-nb[.]info/standards/vocab/gnd/(.*)#(.*)$",
+     "replace" : "https://d-nb.info/standards/vocab/gnd/\\1#\\2",
+     "resolve" : "https://d-nb.info/standards/vocab/gnd/\\1.ttl",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "doi",
+     "match"   : "^https?://doi.org/([0-9]{2}[.][0-9]{4,}(?:[.][0-9]+)?/[-a-zA-Z0-9._/]+)$",
+     "replace" : "https://doi.org/\\1",
+     "resolve" : "https://doi.org/\\1",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "acdh-iso6393",
+     "match"   : "^https?://vocabs.acdh.oeaw.ac.at/iso6393/(.*)$",
+     "replace" : "https://vocabs.acdh.oeaw.ac.at/iso6393/\\1",
+     "resolve" : "https://vocabs.acdh.oeaw.ac.at/iso6393/data?format=application%2Frdf%2Bxml&uri=https%3A%2F%2Fvocabs.acdh.oeaw.ac.at%2Fiso6393%2F\\1",
+     "format"  : "application/rdf+xml"
+  },
+  {
+     "name"    : "acdh-vocabs",
+     "match"   : "^https?://vocabs.acdh.oeaw.ac.at/(.*)$",
+     "replace" : "https://vocabs.acdh.oeaw.ac.at/\\1",
+     "resolve" : "https://vocabs.acdh.oeaw.ac.at/\\1",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "used-in-vocabs",
+     "match"   : "^(https://creativecommons.org|http://rightsstatements.org/vocab|http://purl.org/dc/dcmitype)/(.*)$",
+     "replace" : "\\1/\\2",
+     "resolve" : "\\1/\\2",
+     "format"  : "text/turtle"
+  },
+  {
+     "name"    : "ror",
+     "match"   : "^https?://ror.org/([0-9a-z]+)$",
+     "replace" : "https://ror.org/\\1",
+     "resolve" : "https://api.ror.org/v2/organizations/\\1",
+     "format"  : "application/json"
+  },
+  {
+     "name"    : "rism",
+     "match"   : "^https?://rism.online/(institutions|people)/([0-9]+)$",
+     "replace" : "https://rism.online/\\1/\\2",
+     "resolve" : "https://rism.online/\\1/\\2",
+     "format"  : "application/n-triples"
+  },
+  {
+     "name"    : "manuscripta",
+     "match"   : "^https://manuscripta.at/.*$",
+     "replace" : "\\0",
+     "resolve" : "unresolvable",
+     "format"  : "application/json"
+  }
+]

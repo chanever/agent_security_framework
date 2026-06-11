@@ -1,2 +1,16 @@
 # Populated by bench/setup_corpora.sh from public sources — too large for git.
-corpora/
+# (Use ``corpora/*`` not ``corpora/`` so the chase_compatible_ben exception
+# below is reachable: gitignore can't un-exclude inside a fully-excluded dir.)
+corpora/*
+
+# Exception: chase_compatible_ben (23 newly-published PyPI packages with
+# setup.py + __init__.py) is committed so the head-to-head comparison with
+# CHASE is reproducible. Re-sampling from PyPI RSS would give different
+# packages because the RSS feed is a moving window.
+!corpora/chase_compatible_ben/
+
+# CHASE writes verdict cache files into each package dir when it runs;
+# those would short-circuit a TA's re-run. Keep them out of git so each
+# reproduction is a real fresh run.
+corpora/chase_compatible_ben/**/structured-final-summary.json
+corpora/chase_compatible_ben/**/text-final-summary.md
