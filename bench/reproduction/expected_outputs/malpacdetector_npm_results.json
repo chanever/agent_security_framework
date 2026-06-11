@@ -1,0 +1,1039 @@
+{
+  "framework": "MalPacDetector (CGCL-codes/MalPacDetector-core, IEEE TIFS 2025)",
+  "classifier": "RandomForest (trained on MalnpmDB by paper authors)",
+  "corpus": "chanever bench npm: malicious-npm + benign-npm",
+  "source_csvs": {
+    "mal": "/home/user/malpacdetector/reports/chanever_npm_mal-RF-report.csv",
+    "ben": "/home/user/malpacdetector/reports/chanever_npm_ben-RF-report.csv"
+  },
+  "confusion_total": {
+    "TP": 44,
+    "FN": 6,
+    "TN": 49,
+    "FP": 1
+  },
+  "confusion_per_family": {
+    "malicious-npm": {
+      "TP": 44,
+      "FN": 6
+    },
+    "benign-npm": {
+      "TN": 49,
+      "FP": 1
+    }
+  },
+  "metrics": {
+    "n": 100,
+    "TP": 44,
+    "FP": 1,
+    "TN": 49,
+    "FN": 6,
+    "dsr": 0.88,
+    "specificity": 0.98,
+    "precision": 0.9777777777777777,
+    "accuracy": 0.93,
+    "f1": 0.9263157894736842
+  },
+  "rows": [
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-plv3-0.0.1",
+      "name": "24712-plv3",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-connect-999.9.9",
+      "name": "000webhost-connect",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "0x-smart-contracts-99.99.99",
+      "name": "0x-smart-contracts",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1unitest-1.0.1",
+      "name": "1unitest",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-cloud-999.9.9",
+      "name": "32red-cloud",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "3cx-call-control-apps-1.0.0",
+      "name": "3cx-call-control-apps",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "511fola-99.99.99",
+      "name": "511fola",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1imit-1.0.0",
+      "name": "1imit",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-api-999.9.9",
+      "name": "000webhost-api",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-pl5006-0.0.1",
+      "name": "24712-pl5006",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-pl3469-0.0.2",
+      "name": "24712-pl3469",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-checkout-999.9.9",
+      "name": "000webhost-checkout",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-database-999.9.9",
+      "name": "32red-database",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1inch-p2p-sdk-0.1.0",
+      "name": "1inch-p2p-sdk",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-cache-999.9.9",
+      "name": "000webhost-cache",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "a16z-0.0.0-dev-202603281859",
+      "name": "a16z-0.0.0-dev",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "0vulns-dependency-confusion-poc-1.0.0",
+      "name": "0vulns-dependency-confusion-poc",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-connect-999.9.9",
+      "name": "32red-connect",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "a11-cloud-89.3.5",
+      "name": "a11-cloud",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1password-sdk-examples-1.0.0",
+      "name": "1password-sdk-examples",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-admin-999.9.9",
+      "name": "000webhost-admin",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-api-client-999.9.9",
+      "name": "000webhost-api-client",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-admin-999.9.9",
+      "name": "32red-admin",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "7715-permissions-shared-2.0.0",
+      "name": "7715-permissions-shared",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "a2a-chat-canvas-97.9.9",
+      "name": "a2a-chat-canvas",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "6sdgsd6s-control-9999.0.0",
+      "name": "6sdgsd6s-control",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-plv2-0.0.2",
+      "name": "24712-plv2",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "a111y-cloud-89.3.5",
+      "name": "a111y-cloud",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "52471254zqdl55-22.2.2",
+      "name": "52471254zqdl55",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "4m-clean-shopify-app-9.0.0",
+      "name": "4m-clean-shopify-app",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1231dai-1.0.0",
+      "name": "1231dai",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-database-999.9.9",
+      "name": "000webhost-database",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1uniswapinterface-1.1.2",
+      "name": "1uniswapinterface",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-checkout-999.9.9",
+      "name": "32red-checkout",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-cache-999.9.9",
+      "name": "32red-cache",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-analytics-999.9.9",
+      "name": "32red-analytics",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1kzr-1.0.0",
+      "name": "1kzr",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-auth-999.9.9",
+      "name": "000webhost-auth",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "1password-sdk-exapmles-1.0.0",
+      "name": "1password-sdk-exapmles",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-api-999.9.9",
+      "name": "32red-api",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-cloud-999.9.9",
+      "name": "000webhost-cloud",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "000webhost-analytics-999.9.9",
+      "name": "000webhost-analytics",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "0xmisoke-1.0.0",
+      "name": "0xmisoke",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "FN"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "7702-eoa-implementation-1.0.0",
+      "name": "7702-eoa-implementation",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-api-client-999.9.9",
+      "name": "32red-api-client",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-pl5005-0.0.1",
+      "name": "24712-pl5005",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "aaaaaxxxxx-1.0.0",
+      "name": "aaaaaxxxxx",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "32red-auth-999.9.9",
+      "name": "32red-auth",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "aa-bundler-0.0.2",
+      "name": "aa-bundler",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "malicious-npm",
+      "label": "malicious",
+      "case": "24712-pl5004-0.0.1",
+      "name": "24712-pl5004",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "TP"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "zod-4.4.3",
+      "name": "zod",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "mocha-11.7.6",
+      "name": "mocha",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "typescript-6.0.3",
+      "name": "typescript",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "webpack-5.107.2",
+      "name": "webpack",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "redux-5.0.1",
+      "name": "redux",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "sequelize-6.37.8",
+      "name": "sequelize",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "ws-8.21.0",
+      "name": "ws",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "async-3.2.6",
+      "name": "async",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "ioredis-5.11.0",
+      "name": "ioredis",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "uuid-14.0.0",
+      "name": "uuid",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "axios-1.16.1",
+      "name": "axios",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "express-5.2.1",
+      "name": "express",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "jsonwebtoken-9.0.3",
+      "name": "jsonwebtoken",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "moment-2.30.1",
+      "name": "moment",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "vite-8.0.14",
+      "name": "vite",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "cors-2.8.6",
+      "name": "cors",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "mysql2-3.22.4",
+      "name": "mysql2",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "immutable-5.1.5",
+      "name": "immutable",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "pg-8.21.0",
+      "name": "pg",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "dotenv-17.4.2",
+      "name": "dotenv",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "passport-0.7.0",
+      "name": "passport",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "nanoid-5.1.11",
+      "name": "nanoid",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "react-19.2.6",
+      "name": "react",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "rxjs-7.8.2",
+      "name": "rxjs",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "eslint-10.4.0",
+      "name": "eslint",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "node-fetch-3.3.2",
+      "name": "node-fetch",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "socket.io-4.8.3",
+      "name": "socket.io",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "semver-7.8.1",
+      "name": "semver",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "nodemon-3.1.14",
+      "name": "nodemon",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "jest-30.4.2",
+      "name": "jest",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "commander-14.0.3",
+      "name": "commander",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "mongoose-9.6.3",
+      "name": "mongoose",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "yargs-18.0.0",
+      "name": "yargs",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "joi-18.2.1",
+      "name": "joi",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "prettier-3.8.3",
+      "name": "prettier",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "body-parser-2.2.2",
+      "name": "body-parser",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "pino-10.3.1",
+      "name": "pino",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "react-dom-19.2.6",
+      "name": "react-dom",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "ts-node-10.9.2",
+      "name": "ts-node",
+      "classifier": "random_forest",
+      "predict": "malicious",
+      "decision": "block",
+      "outcome": "FP"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "bcryptjs-3.0.3",
+      "name": "bcryptjs",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "lodash-4.18.1",
+      "name": "lodash",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "chalk-5.6.2",
+      "name": "chalk",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "debug-4.4.3",
+      "name": "debug",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "winston-3.19.0",
+      "name": "winston",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "ramda-0.32.0",
+      "name": "ramda",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "ajv-8.20.0",
+      "name": "ajv",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "dayjs-1.11.21",
+      "name": "dayjs",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "redis-5.12.1",
+      "name": "redis",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "date-fns-4.3.0",
+      "name": "date-fns",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    },
+    {
+      "family": "benign-npm",
+      "label": "benign",
+      "case": "glob-13.0.6",
+      "name": "glob",
+      "classifier": "random_forest",
+      "predict": "benign",
+      "decision": "allow",
+      "outcome": "TN"
+    }
+  ]
+}
