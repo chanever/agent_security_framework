@@ -28,3 +28,6 @@ security_runs/
 .DS_Store
 .idea/
 .vscode/
+
+# OMC session state
+.omc/

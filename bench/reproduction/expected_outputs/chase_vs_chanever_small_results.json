@@ -1,0 +1,404 @@
+{
+  "label": "benign",
+  "chase_confusion": {
+    "TN": 21,
+    "ERR": 2
+  },
+  "chanever_confusion": {
+    "TN": 12,
+    "FP": 11
+  },
+  "rows": [
+    {
+      "case": "acdh-arche-assets",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/acdh-arche-assets/artifact/acdh_arche_assets-3.30.1",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 82.1,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 63.0,
+        "static_status": null,
+        "reason": "The package acdh-arche-assets is a well-established PyPI package (52 versions, active since 2021, authored by Mateusz \u017b\u00f3\u0142tak of ACDH-ARCHE) with zero OSV vulner"
+      }
+    },
+    {
+      "case": "alibabacloud-searchagent20260515",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/alibabacloud-searchagent20260515/artifact/alibabacloud_searchagent20260515-1.0.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 98.1,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 80.7,
+        "static_status": null,
+        "reason": "The package alibabacloud-searchagent20260515 was published on the same day as this install request (2026-06-03), has exactly one version and one release in its "
+      }
+    },
+    {
+      "case": "autogluon",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/autogluon/artifact/autogluon-1.5.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 56.8,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 60.0,
+        "static_status": null,
+        "reason": "autogluon is a legitimate, well-established AutoML library maintained by the AutoGluon Community (AWS-backed). Static analysis returned zero install_time findin"
+      }
+    },
+    {
+      "case": "autogluon.common",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/autogluon.common/artifact/autogluon_common-1.5.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 34.7,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 80.8,
+        "static_status": null,
+        "reason": "autogluon.common is a well-established Amazon-backed AutoML library (1605 releases since 2021) with zero install-time static findings, zero OSV vulnerabilities,"
+      }
+    },
+    {
+      "case": "autogluon.core",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/autogluon.core/artifact/autogluon_core-1.5.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 61.3,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 121.5,
+        "static_status": null,
+        "reason": "autogluon.core is a well-established, reputable PyPI package (AutoGluon Community / AWS, Apache-2.0, first published 2020, 2008 releases, 0 OSV vulnerabilities)"
+      }
+    },
+    {
+      "case": "autogluon.features",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/autogluon.features/artifact/autogluon_features-1.5.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 62.5,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 86.8,
+        "static_status": null,
+        "reason": "autogluon.features is a legitimate, long-established PyPI package from the AutoGluon Community (an open-source AutoML framework backed by Amazon), with 1894 rel"
+      }
+    },
+    {
+      "case": "crunch-cli",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/crunch-cli/artifact/crunch_cli-11.6.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 140.9,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 107.0,
+        "static_status": null,
+        "reason": "The sole install_time finding is a generic semgrep security-audit rule (exec-detected) that fires on any exec() call in setup.py, most commonly the legitimate v"
+      }
+    },
+    {
+      "case": "dforge-cli",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/dforge-cli/artifact/dforge",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 81.9,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 100.5,
+        "static_status": null,
+        "reason": "The package dforge-cli contains a confirmed install_time OS command execution finding in setup.py (line 26, guarddog_unscoped.code-execution). Per the threat mo"
+      }
+    },
+    {
+      "case": "legit-api-client",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/legit-api-client/artifact/legit_api_client-1.1.4861",
+      "chase": {
+        "decision": null,
+        "outcome": "ERR",
+        "elapsed_s": 77.0,
+        "note": "no_verdict_file"
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 242.9,
+        "static_status": null,
+        "reason": "The primary install-time risk signals are all negative: GuardDog, chanever, and semgrep scans produced zero install_time findings, which are the highest-weight "
+      }
+    },
+    {
+      "case": "microframex",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/microframex/artifact/microframex-2026.1",
+      "chase": {
+        "decision": null,
+        "outcome": "ERR",
+        "elapsed_s": 52.1,
+        "note": "no_verdict_file"
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 70.4,
+        "static_status": null,
+        "reason": "The sandbox execution failed with a strace permission error, meaning no runtime syscall telemetry was captured. This makes it impossible to verify what the pack"
+      }
+    },
+    {
+      "case": "mnemon-ai",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/mnemon-ai/artifact/mnemon_ai-1.1.5",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 261.0,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 129.5,
+        "static_status": null,
+        "reason": "All install_time static analysis signals are clean \u2014 zero findings from semgrep, GuardDog, chanever, and obfuscation scans across setup.py and install hooks. Th"
+      }
+    },
+    {
+      "case": "polytext",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/polytext/artifact/polytext-0.2.4",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 177.6,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 100.7,
+        "static_status": null,
+        "reason": "The install of polytext carries zero install_time static-analysis findings, meaning no code in setup.py, pyproject.toml, or package init hooks was flagged as ma"
+      }
+    },
+    {
+      "case": "portmate",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/portmate/artifact/portmate-0.1.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 72.8,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 71.4,
+        "static_status": null,
+        "reason": "HOLD is warranted due to two compounding gaps in evidence. First, the sandbox execution failed (strace permission denied), meaning there is zero dynamic trace c"
+      }
+    },
+    {
+      "case": "prune-sdk",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/prune-sdk/artifact/prune_sdk-0.1.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 101.6,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 64.1,
+        "static_status": null,
+        "reason": "HOLD is required because two independent evidence gaps compound: (1) The sandbox strace failed with a permissions error, leaving the system_trace entirely empty"
+      }
+    },
+    {
+      "case": "pynightmares",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/pynightmares/artifact/pynightmares-0.2.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 94.1,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 73.1,
+        "static_status": null,
+        "reason": "The sandbox execution failed entirely due to a strace permission error, leaving zero dynamic behavioral evidence of what the package does at install time. While"
+      }
+    },
+    {
+      "case": "sythonlab-kiu-sdk",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/sythonlab-kiu-sdk/artifact/sythonlab_kiu_sdk-0.0.4",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 83.7,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 69.1,
+        "static_status": null,
+        "reason": "The sandbox execution failed before strace could capture any install-time syscalls, leaving install-time behavior entirely unobserved. Under the uncertainty_rul"
+      }
+    },
+    {
+      "case": "tree-sitter-hujson",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/tree-sitter-hujson/artifact/tree_sitter_hujson-1.0.1",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 53.1,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 78.5,
+        "static_status": null,
+        "reason": "Static analysis is clean and no known vulnerabilities or bad-package matches exist, but three compounding uncertainty factors prevent ALLOW: (1) the package was"
+      }
+    },
+    {
+      "case": "unit-python-sdk",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/unit-python-sdk/artifact/unit_python_sdk-1.3.0",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 236.0,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 101.1,
+        "static_status": null,
+        "reason": "unit-python-sdk is a well-established PyPI package (60 releases since 2021-11-04) published by unit.co, a legitimate fintech company. Static analysis produced z"
+      }
+    },
+    {
+      "case": "vibetodev",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/vibetodev/artifact/vibetodev-1.0.1",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 147.8,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 81.6,
+        "static_status": null,
+        "reason": "Three independent sources of uncertainty converge to prevent an ALLOW decision. First, the package was published on the same day as this install request (first "
+      }
+    },
+    {
+      "case": "wexample-wex-addon-dev-python",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/wexample-wex-addon-dev-python/artifact/service",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 69.8,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 79.2,
+        "static_status": null,
+        "reason": "A GuardDog install_time rule (guarddog_unscoped.code-execution) flagged OS command execution inside setup.py at line 55. Per threat-model policy, install_time f"
+      }
+    },
+    {
+      "case": "wexample-wex-addon-master",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/wexample-wex-addon-master/artifact/apps",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 64.5,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 59.7,
+        "static_status": null,
+        "reason": "All available static and reputation signals for wexample-wex-addon-master are clean: zero install_time findings (the highest-weight category per threat model), "
+      }
+    },
+    {
+      "case": "wexample-wex-addon-services-db",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/wexample-wex-addon-services-db/artifact/service",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 25.9,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "block",
+        "outcome": "FP",
+        "elapsed_s": 73.5,
+        "static_status": null,
+        "reason": "The package contains a confirmed install_time code-execution finding (guarddog_unscoped.code-execution in setup.py line 25), meaning OS commands will execute on"
+      }
+    },
+    {
+      "case": "wexample-wex-addon-services-platform",
+      "pkg_dir": "/home/user/agent_security_framework/bench/corpora/chase_compatible_ben/wexample-wex-addon-services-platform/artifact/service",
+      "chase": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 38.6,
+        "note": ""
+      },
+      "chanever": {
+        "decision": "allow",
+        "outcome": "TN",
+        "elapsed_s": 67.4,
+        "static_status": null,
+        "reason": "The package wexample-wex-addon-services-platform presents no install-time risk signals. Static analysis (Semgrep + GuardDog + chanever + obfuscation rules) retu"
+      }
+    }
+  ]
+}
