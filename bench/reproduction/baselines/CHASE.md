@@ -36,13 +36,33 @@ The repo is uv-managed (pyproject.toml + uv.lock, `requires-python ≥ 3.12`).
 
 ```bash
 git clone --depth 1 https://github.com/t0d4/CHASE-AIware25 ../chase
+git apply --whitespace=nowarn .../patches/chase.patch       # adds anthropic runner
 ( cd ../chase && uv sync --frozen )
 ```
 
-`uv sync --frozen` reads `uv.lock` and creates `../chase/.venv` with
-exactly the dependency versions the paper authors used — including
-`langchain-anthropic`, `langchain-sandbox`, and friends. No manual
-version pinning needed; the lockfile pins for us.
+### The `chase.patch` we ship
+
+CHASE upstream supports only `ollama` and `sglang` runners — both require
+a local GPU to host Qwen3-32B. We added a third runner `anthropic` that
+dispatches Supervisor + Workers to Claude Sonnet 4.6 and the Formatter
+to Claude Haiku 4.5 via `langchain-anthropic`, so the bench is runnable
+without a GPU. The patch lives at
+`bench/reproduction/baselines/patches/chase.patch` and touches three files:
+
+- `pyproject.toml` — adds `langchain-anthropic>=0.3.22` to deps
+- `run_chase.py` — adds the `"anthropic"` branch in `prepare_llms()`
+  plus the matching argparse choice
+- `uv.lock` — regenerated lockfile (so `uv sync --frozen` produces the
+  same env we used)
+
+The patch was verified to apply cleanly against upstream HEAD as of the
+commit shipped in `bench/reproduction/baselines/patches/`. `setup.sh` is
+idempotent — re-running it skips the patch if `"anthropic"` is already
+in `run_chase.py`.
+
+`uv sync --frozen` then reads the patched `uv.lock` and creates
+`../chase/.venv` with exactly the dependency versions the paper authors
+used + our `langchain-anthropic` addition.
 
 You also need:
 
