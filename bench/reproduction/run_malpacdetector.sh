@@ -48,6 +48,9 @@ stage_one() {
     tar -C "$pkg_root" -czf "$out_tgz" package
 }
 
+# MPD's cli.py listdir()s these at module top-level (BEFORE argparse), so
+# they must exist on disk or the whole CLI crashes on import.
+mkdir -p "$MPD"/{features,feature-positions,reports,datasets}
 for corpus in chanever_npm_mal chanever_npm_ben; do
     rm -rf "$MPD/datasets/$corpus" \
            "$MPD/feature-positions/$corpus" \
