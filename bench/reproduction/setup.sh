@@ -39,6 +39,16 @@ if want chase; then
         echo "==> cloning CHASE"
         git clone --depth 1 https://github.com/t0d4/CHASE-AIware25 "$PARENT/chase"
     fi
+    # CHASE upstream supports only ollama / sglang runners — needs a local
+    # GPU. Our patch adds an ``anthropic`` runner that dispatches to the
+    # Claude API via langchain-anthropic, plus the matching pyproject /
+    # uv.lock entries. Idempotent: only applies if the runner isn't already
+    # registered.
+    if ! grep -q '"anthropic"' "$PARENT/chase/run_chase.py"; then
+        echo "==> CHASE: applying anthropic-runner patch"
+        ( cd "$PARENT/chase" && \
+          git apply --whitespace=nowarn "$HERE/baselines/patches/chase.patch" )
+    fi
     if [ ! -d "$PARENT/chase/.venv" ]; then
         echo "==> CHASE: uv sync (resolves Python 3.12 + locked deps from uv.lock)"
         ( cd "$PARENT/chase" && uv sync --frozen )
@@ -67,6 +77,15 @@ if want malpacdetector; then
         echo "==> cloning MalPacDetector"
         git clone --depth 1 https://github.com/CGCL-codes/MalPacDetector-core \
             "$PARENT/malpacdetector"
+    fi
+    # Upstream conf/settings.json points "datasets" at MalnpmDB (the paper
+    # authors' training corpus). Our run_malpacdetector.sh stages chanever's
+    # npm cases into ``datasets/chanever_npm_{mal,ben}``, so we re-point the
+    # config to the generic ``datasets`` dir. Idempotent.
+    if grep -q '"datasets": "datasets/MalnpmDB"' "$PARENT/malpacdetector/conf/settings.json" 2>/dev/null; then
+        echo "==> MPD: applying settings-path patch"
+        ( cd "$PARENT/malpacdetector" && \
+          git apply --whitespace=nowarn "$HERE/baselines/patches/malpacdetector.patch" )
     fi
     # python venv pinned by upstream's training/requirements.txt
     # (scikit-learn==1.2.2 needs numpy<2; we don't need to override anything)

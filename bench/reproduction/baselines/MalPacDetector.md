@@ -26,10 +26,25 @@ precision ≈ 97 %.
 
 ```bash
 git clone --depth 1 https://github.com/CGCL-codes/MalPacDetector-core ../malpacdetector
+git apply --whitespace=nowarn .../patches/malpacdetector.patch        # re-point datasets path
 python3.10 -m venv ../malpacdetector/.venv
 ../malpacdetector/.venv/bin/pip install -r ../malpacdetector/training/requirements.txt
 ( cd ../malpacdetector/feature-extract && npm install && npm run compile )
 ```
+
+### The `malpacdetector.patch` we ship
+
+Upstream `conf/settings.json` has `"datasets": "datasets/MalnpmDB"` —
+pointing at the paper authors' training corpus. Our run wrapper stages
+chanever's npm cases at `datasets/chanever_npm_{mal,ben}`, so the patch
+re-points the config to the generic `datasets` directory.
+
+Lives at `bench/reproduction/baselines/patches/malpacdetector.patch`.
+One-line semantic change (`datasets/MalnpmDB` → `datasets`); the rest
+of the diff is whitespace (the upstream file is 4-space indented,
+ours is 2-space — the patch rewrites the indentation but doesn't
+change any other key/value). Verified to apply cleanly against
+upstream HEAD. `setup.sh` is idempotent.
 
 The python deps are pinned by upstream's `training/requirements.txt`:
 `scikit-learn==1.2.2` + `prettytable==3.7.0`. scikit-learn 1.2 implicitly
