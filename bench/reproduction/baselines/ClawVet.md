@@ -29,7 +29,7 @@ Plain `npm install` in the cloned repo. No special version pinning needed
 on Node 18+. The bench invokes the scanner via:
 
 ```
-npx tsx packages/cli/src/index.ts scan <skill-dir> --json
+npx tsx packages/cli/src/index.ts scan <skill-dir> --format json
 ```
 
 `tsx` is dev-dep, already in package.json.
@@ -73,6 +73,6 @@ adds on top.
 
 ## Outputs
 
-Per-case stdout: ClawVet `--json` output. Aggregated: a chanever-shaped
+Per-case stdout: ClawVet `--format json` output. Aggregated: a chanever-shaped
 results JSON at `$OUT_DIR/clawvet_skill.json` with per-row `risk_score`,
 `risk_grade`, and `findings_count` preserved.

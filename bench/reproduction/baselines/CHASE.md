@@ -1,7 +1,7 @@
 # CHASE — Collaborative Hierarchical Agents for Security Exploration
 
 **Paper**: Toda & Mori, AIware 2025, arXiv:2601.06838
-**Source**: github.com/iydon/chase
+**Source**: github.com/t0d4/CHASE-AIware25
 **License**: MIT (paper authors' implementation)
 
 ## What it is
@@ -29,27 +29,28 @@ used `anthropic` (no local GPU required) — this dispatches to the
 Anthropic API via `langchain-anthropic`. Each case spends 6–10 API
 calls + a handful of DuckDuckGo searches, ≈ 3–5 minutes wall time.
 
-### Install issues we hit (and patches we applied)
+## Setup
 
-1. **semgrep wheel + Python 3.10 + glibc 2.31 incompatibility**
-   CHASE's `requirements.txt` pins a recent semgrep whose `manylinux_2_34`
-   wheel doesn't load on the host glibc. → built a venv with Python 3.12
-   (`PY312` in `setup.sh`).
+The repo is uv-managed (pyproject.toml + uv.lock, `requires-python ≥ 3.12`).
+`bench/reproduction/setup.sh` handles it:
 
-2. **`pkg_resources` removed in setuptools 81**
-   Some CHASE deps still `import pkg_resources`. → pin `setuptools<81`
-   (`setup.sh` does this).
+```bash
+git clone --depth 1 https://github.com/t0d4/CHASE-AIware25 ../chase
+( cd ../chase && uv sync --frozen )
+```
 
-3. **`.env` newline handling**
-   When appending `ANTHROPIC_API_KEY` to `.env`, ensure a leading newline.
-   `printf "\n%s\n"` form, not `echo >>`.
+`uv sync --frozen` reads `uv.lock` and creates `../chase/.venv` with
+exactly the dependency versions the paper authors used — including
+`langchain-anthropic`, `langchain-sandbox`, and friends. No manual
+version pinning needed; the lockfile pins for us.
 
-4. **Docker image's bundled semgrep is broken**
-   The CHASE docker mode fails with
-   `Failed to find semgrep-core in PATH or in the semgrep package`. Use
-   the venv approach (set `--llm-runner anthropic`) instead. We do.
+You also need:
 
-### Running on our corpus
+- **Anthropic API key** in `../chase/.env` (the setup script writes a
+  template if `ANTHROPIC_API_KEY` is already in your shell env)
+- **Deno** on `PATH` — `langchain-sandbox` shells out to deno
+
+## Running on our corpus
 
 Invoke through `bench/run_chase_bench.py`. The wrapper:
 - Uses chanever's panel construction so the case set matches
@@ -63,7 +64,7 @@ CHASE's `collect_entrypoint_sourcecodes` raises
 `ValueError: min() iterable argument is empty`. Our wrapper detects this
 and marks those cases `ERR` with note `out of CHASE scope (no setup.py …)`.
 
-### Running on CHASE's own dataset
+## Running on CHASE's own dataset
 
 `bench/run_chanever_on_chase_dataset.py` walks
 `$PARENT/pypi_malregistry/<pkg>/<ver>/*.{tar.gz,whl}` and feeds each
