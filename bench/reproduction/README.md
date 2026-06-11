@@ -44,11 +44,14 @@ These are what we ran on. Wall times above scale with hardware.
 # OS packages
 sudo apt-get install -y curl git docker.io nodejs npm
 
-# Python 3.12 (CHASE needs ≥ 3.12)
+# Python 3.10 + venv (chanever itself; system default on Ubuntu 22.04)
+sudo apt-get install -y python3 python3-venv python3.10-venv
+
+# Python 3.12 + venv (CHASE needs ≥ 3.12)
 sudo add-apt-repository -y ppa:deadsnakes/ppa
 sudo apt-get install -y python3.12 python3.12-venv
 
-# uv (CHASE dep manager)
+# uv (CHASE dep manager; ALSO fallback when python3-venv is unavailable)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Deno (CHASE shells out to deno for langchain-sandbox)
@@ -77,9 +80,11 @@ git clone https://github.com/chanever/agent_security_framework
 cd agent_security_framework
 
 # Python deps for the bench harness + reputation/static modules
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# If the python3 -m venv step fails with "ensurepip is not available", you're
+# missing the python3-venv apt package. Either install it (see prereqs above)
+# or use uv as a fallback:
+#   uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt
 
 # Populate downloadable corpora (~10 min, ~500 MB)
 bash bench/setup_corpora.sh

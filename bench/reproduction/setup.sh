@@ -87,17 +87,36 @@ if want malpacdetector; then
         ( cd "$PARENT/malpacdetector" && \
           git apply --whitespace=nowarn "$HERE/baselines/patches/malpacdetector.patch" )
     fi
-    # python venv pinned by upstream's training/requirements.txt
-    # (scikit-learn==1.2.2 needs numpy<2; we don't need to override anything)
-    if [ ! -d "$PARENT/malpacdetector/.venv" ]; then
+    # python venv. ``python3 -m venv`` fails on hosts without the apt
+    # ``python3-venv`` package (ensurepip missing). Falls back to ``uv venv``
+    # which doesn't need that apt package — uv brings its own bootstrap.
+    if [ ! -x "$PARENT/malpacdetector/.venv/bin/python" ]; then
         echo "==> MalPacDetector: python venv + training deps"
+        rm -rf "$PARENT/malpacdetector/.venv"  # clear any broken stub
         "$PY310" -m venv "$PARENT/malpacdetector/.venv" 2>/dev/null \
-            || python3 -m venv "$PARENT/malpacdetector/.venv"
+            || python3 -m venv "$PARENT/malpacdetector/.venv" 2>/dev/null \
+            || { rm -rf "$PARENT/malpacdetector/.venv"; \
+                 uv venv "$PARENT/malpacdetector/.venv" --python 3.10; }
     fi
-    "$PARENT/malpacdetector/.venv/bin/pip" install --quiet --upgrade pip \
-        'setuptools<81' wheel
-    "$PARENT/malpacdetector/.venv/bin/pip" install --quiet \
-        -r "$PARENT/malpacdetector/training/requirements.txt"
+    # Pin order matters: scikit-learn==1.2.2 is cython-compiled against
+    # numpy<2 ABI but the requirements file doesn't pin numpy. Install
+    # numpy<2 first so pip resolves to a compatible binary.
+    if [ -x "$PARENT/malpacdetector/.venv/bin/pip" ]; then
+        "$PARENT/malpacdetector/.venv/bin/pip" install --quiet --upgrade pip \
+            'setuptools<81' wheel
+        "$PARENT/malpacdetector/.venv/bin/pip" install --quiet 'numpy<2'
+        "$PARENT/malpacdetector/.venv/bin/pip" install --quiet \
+            -r "$PARENT/malpacdetector/training/requirements.txt"
+    else
+        # uv-created venv has no pip; use ``uv pip`` instead.
+        uv pip install --python "$PARENT/malpacdetector/.venv/bin/python" \
+            --quiet 'setuptools<81' wheel 'numpy<2'
+        uv pip install --python "$PARENT/malpacdetector/.venv/bin/python" \
+            --quiet -r "$PARENT/malpacdetector/training/requirements.txt"
+    fi
+    # MPD's cli.py listdir()s these at module top-level — they have to exist
+    # before any ``cli.py {extract,predict}`` call.
+    mkdir -p "$PARENT/malpacdetector"/{features,feature-positions,reports}
     # Node feature-extract: install deps + compile (webpack → dist/main.js)
     if [ ! -f "$PARENT/malpacdetector/feature-extract/dist/main.js" ]; then
         echo "==> MalPacDetector: building feature-extract (webpack compile)"
