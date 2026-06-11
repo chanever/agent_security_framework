@@ -1,0 +1,2 @@
+[console_scripts]
+pynightmares = nightmares.cli:main

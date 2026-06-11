@@ -1,0 +1,7 @@
+# Runtime dependencies for the chanever safeguard framework and its bench
+# harness. Everything else (semgrep, gitleaks, gvisor) runs inside docker
+# containers and is not a host pip dependency.
+
+packaging>=23.0          # PEP 440 version range arithmetic in reputation/_osv.py
+matplotlib>=3.5          # bench/framework_reliability.py chart rendering
+numpy>=1.21              # transitive of matplotlib, pinned to silence resolver

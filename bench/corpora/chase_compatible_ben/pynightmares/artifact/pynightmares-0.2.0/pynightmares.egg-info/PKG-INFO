@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: pynightmares
+Version: 0.2.0
+Summary: A collection of funny and strange Python scripts
+Home-page: https://github.com/mrf0rtuna4/PythonicNightmares
+Author: mrf0rtuna4
+Author-email: heypers.team@gmail.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: summary
+
+Крутой пакетик, почитай на гите

@@ -1,0 +1,17 @@
+LICENSE
+MANIFEST.in
+README.md
+setup.py
+AcdhArcheAssets/__init__.py
+AcdhArcheAssets/file_formats.py
+AcdhArcheAssets/formats.json
+AcdhArcheAssets/uriNormRules.json
+AcdhArcheAssets/uri_norm_rules.py
+acdh_arche_assets.egg-info/PKG-INFO
+acdh_arche_assets.egg-info/SOURCES.txt
+acdh_arche_assets.egg-info/dependency_links.txt
+acdh_arche_assets.egg-info/requires.txt
+acdh_arche_assets.egg-info/top_level.txt
+tests/__init__.py
+tests/test_file_formats.py
+tests/test_normalizer.py

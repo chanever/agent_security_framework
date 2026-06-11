@@ -1,0 +1,3 @@
+alibabacloud_gateway_pop<1.0.0,>=0.1.3
+alibabacloud_tea_openapi<1.0.0,>=0.4.4
+darabonba-core<2.0.0,>=1.0.0

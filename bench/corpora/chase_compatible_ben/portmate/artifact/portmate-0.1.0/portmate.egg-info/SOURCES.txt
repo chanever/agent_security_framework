@@ -1,0 +1,14 @@
+LICENSE
+MANIFEST.in
+README.md
+pyproject.toml
+setup.py
+portmate/__init__.py
+portmate/cli.py
+portmate/core.py
+portmate.egg-info/PKG-INFO
+portmate.egg-info/SOURCES.txt
+portmate.egg-info/dependency_links.txt
+portmate.egg-info/entry_points.txt
+portmate.egg-info/requires.txt
+portmate.egg-info/top_level.txt

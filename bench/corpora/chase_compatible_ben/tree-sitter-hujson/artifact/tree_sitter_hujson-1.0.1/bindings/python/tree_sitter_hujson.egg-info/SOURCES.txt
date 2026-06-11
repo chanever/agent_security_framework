@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+bindings/python/tree_sitter_hujson/__init__.py
+bindings/python/tree_sitter_hujson/__init__.pyi
+bindings/python/tree_sitter_hujson/binding.c
+bindings/python/tree_sitter_hujson/py.typed
+bindings/python/tree_sitter_hujson.egg-info/PKG-INFO
+bindings/python/tree_sitter_hujson.egg-info/SOURCES.txt
+bindings/python/tree_sitter_hujson.egg-info/dependency_links.txt
+bindings/python/tree_sitter_hujson.egg-info/not-zip-safe
+bindings/python/tree_sitter_hujson.egg-info/requires.txt
+bindings/python/tree_sitter_hujson.egg-info/top_level.txt
+src/parser.c

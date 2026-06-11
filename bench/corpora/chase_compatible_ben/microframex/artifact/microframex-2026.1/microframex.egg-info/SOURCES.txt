@@ -1,0 +1,10 @@
+setup.py
+microframe/__init__.py
+microframe/dataframe.py
+microframe/reader.py
+microframe/writer.py
+microframex.egg-info/PKG-INFO
+microframex.egg-info/SOURCES.txt
+microframex.egg-info/dependency_links.txt
+microframex.egg-info/requires.txt
+microframex.egg-info/top_level.txt
